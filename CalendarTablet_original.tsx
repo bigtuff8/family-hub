@@ -1,101 +1,19 @@
-import { Card, Avatar, Button } from 'antd';
+import { Card, Tag, Avatar, Button } from 'antd';
 import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { CalendarEvent } from '../../mockData';
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezone from 'dayjs/plugin/timezone';
-import CalendarEventForm from './CalendarEventForm';
-
-// Types - keep using the service types for now
-interface CalendarEvent {
-  id: string;
-  tenant_id: string;
-  user_id: string | null;
-  title: string;
-  description: string | null;
-  location: string | null;
-  start_time: string;
-  end_time: string | null;
-  all_day: boolean;
-  recurrence_rule: string | null;
-  external_calendar_id: string | null;
-  external_event_id: string | null;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-  user?: {
-    name: string;
-  };
-}
-
-// Enable timezone plugins
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
-// Set default timezone to Europe/London (handles BST/GMT automatically)
-dayjs.tz.setDefault('Europe/London');
 
 interface CalendarTabletProps {
   events: CalendarEvent[];
-  onRefresh?: () => void;
 }
 
-export default function CalendarTablet({ events, onRefresh }: CalendarTabletProps) {
-  const [formVisible, setFormVisible] = useState(false);
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
-  const [selectedEvent, setSelectedEvent] = useState<any>(undefined);
-
-  // Parse UTC time and convert to local timezone
-  const parseEventTime = (utcTimeString: string) => {
-    return dayjs.utc(utcTimeString).tz('Europe/London');
-  };
-
+export default function CalendarTablet({ events }: CalendarTabletProps) {
   // Group events by date
   const today = dayjs().startOf('day');
-  const todayEvents = events.filter(e => parseEventTime(e.start_time).isSame(today, 'day'));
-  const upcomingEvents = events.filter(e => parseEventTime(e.start_time).isAfter(today, 'day'));
+  const todayEvents = events.filter(e => dayjs(e.startTime).isSame(today, 'day'));
+  const upcomingEvents = events.filter(e => dayjs(e.startTime).isAfter(today, 'day'));
 
-  const formatTime = (utcTimeString: string) => parseEventTime(utcTimeString).format('h:mm A');
-
-  const handleCreateEvent = () => {
-    setFormMode('create');
-    setSelectedEvent(undefined);
-    setFormVisible(true);
-  };
-
-  const handleEditEvent = (event: CalendarEvent) => {
-    setFormMode('edit');
-    // Convert snake_case to camelCase for the form
-    setSelectedEvent({
-      id: event.id,
-      tenantId: event.tenant_id,
-      userId: event.user_id,
-      title: event.title,
-      description: event.description,
-      location: event.location,
-      startTime: event.start_time,
-      endTime: event.end_time,
-      allDay: event.all_day,
-      recurrenceRule: event.recurrence_rule,
-      externalCalendarId: event.external_calendar_id,
-      externalEventId: event.external_event_id,
-      color: event.color,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
-    });
-    setFormVisible(true);
-  };
-
-  const handleFormClose = () => {
-    setFormVisible(false);
-    setSelectedEvent(undefined);
-  };
-
-  const handleFormSuccess = () => {
-    if (onRefresh) {
-      onRefresh();
-    }
-  };
+  const formatTime = (date: Date) => dayjs(date).format('h:mm A');
 
   return (
     <>
@@ -110,7 +28,7 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <h1 style={{
+          <h1 style={{ 
             fontSize: 28,
             fontWeight: 700,
             margin: 0,
@@ -166,9 +84,9 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
       </div>
 
       {/* Calendar Content */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '2fr 1fr',
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '2fr 1fr', 
         gap: 24,
         padding: 24,
         background: '#fef7f0',
@@ -184,23 +102,23 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
               border: 'none'
             }}
           >
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
               alignItems: 'center',
               marginBottom: 24
             }}>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
+              <h2 style={{ 
+                fontSize: 24, 
+                fontWeight: 600, 
                 color: '#1a2332',
-                margin: 0
+                margin: 0 
               }}>
                 Today's Schedule
               </h2>
-              <Button
-                type="text"
-                style={{
+              <Button 
+                type="text" 
+                style={{ 
                   color: '#2dd4bf',
                   fontWeight: 500
                 }}
@@ -212,10 +130,10 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
             {/* Event List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {todayEvents.length === 0 ? (
-                <div style={{
-                  textAlign: 'center',
-                  padding: 40,
-                  color: '#64748b'
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: 40, 
+                  color: '#64748b' 
                 }}>
                   No events scheduled for today
                 </div>
@@ -223,7 +141,6 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
                 todayEvents.map(event => (
                   <div
                     key={event.id}
-                    onClick={() => handleEditEvent(event)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -245,27 +162,27 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
                     }}
                   >
                     {/* Time */}
-                    <div style={{
-                      minWidth: 80,
-                      fontSize: 16,
+                    <div style={{ 
+                      minWidth: 80, 
+                      fontSize: 16, 
                       fontWeight: 600,
                       color: '#1a2332'
                     }}>
-                      {event.all_day ? 'All Day' : formatTime(event.start_time)}
+                      {event.allDay ? 'All Day' : formatTime(event.startTime)}
                     </div>
 
                     {/* Event Details */}
                     <div style={{ flex: 1 }}>
-                      <div style={{
-                        fontWeight: 600,
+                      <div style={{ 
+                        fontWeight: 600, 
                         fontSize: 16,
                         color: '#2c3e50',
                         marginBottom: 4
                       }}>
                         {event.title}
                       </div>
-                      <div style={{
-                        fontSize: 14,
+                      <div style={{ 
+                        fontSize: 14, 
                         color: '#64748b',
                         display: 'flex',
                         alignItems: 'center',
@@ -280,20 +197,24 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
                       </div>
                     </div>
 
-                    {/* Avatar */}
-                    {event.user && (
-                      <Avatar
-                        style={{
-                          background: event.color || '#2dd4bf',
-                          border: '3px solid white',
-                          fontSize: 14,
-                          fontWeight: 600
-                        }}
-                        size={40}
-                      >
-                        {event.user.name.substring(0, 2).toUpperCase()}
-                      </Avatar>
-                    )}
+                    {/* Avatars */}
+                    <div style={{ display: 'flex', gap: -8 }}>
+                      {event.assignedTo.map((person, index) => (
+                        <Avatar
+                          key={person.id}
+                          style={{
+                            background: `linear-gradient(135deg, ${person.color}, ${person.color}dd)`,
+                            border: '3px solid white',
+                            fontSize: 14,
+                            fontWeight: 600,
+                            zIndex: event.assignedTo.length - index
+                          }}
+                          size={40}
+                        >
+                          {person.avatar}
+                        </Avatar>
+                      ))}
+                    </div>
                   </div>
                 ))
               )}
@@ -312,9 +233,9 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
               border: 'none'
             }}
           >
-            <h3 style={{
-              fontSize: 20,
-              fontWeight: 600,
+            <h3 style={{ 
+              fontSize: 20, 
+              fontWeight: 600, 
               color: '#1a2332',
               marginBottom: 20
             }}>
@@ -325,7 +246,6 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
               {upcomingEvents.slice(0, 4).map(event => (
                 <div
                   key={event.id}
-                  onClick={() => handleEditEvent(event)}
                   style={{
                     padding: 16,
                     background: '#fef7f0',
@@ -334,24 +254,24 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
                     cursor: 'pointer'
                   }}
                 >
-                  <div style={{
-                    fontWeight: 600,
+                  <div style={{ 
+                    fontWeight: 600, 
                     fontSize: 14,
                     color: '#2c3e50',
                     marginBottom: 6
                   }}>
                     {event.title}
                   </div>
-                  <div style={{
-                    fontSize: 13,
+                  <div style={{ 
+                    fontSize: 13, 
                     color: '#64748b',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6
                   }}>
                     <ClockCircleOutlined />
-                    {parseEventTime(event.start_time).format('ddd, MMM D')}
-                    {!event.all_day && ` • ${formatTime(event.start_time)}`}
+                    {dayjs(event.startTime).format('ddd, MMM D')}
+                    {!event.allDay && ` • ${formatTime(event.startTime)}`}
                   </div>
                 </div>
               ))}
@@ -367,9 +287,9 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
               border: 'none'
             }}
           >
-            <h3 style={{
-              fontSize: 20,
-              fontWeight: 600,
+            <h3 style={{ 
+              fontSize: 20, 
+              fontWeight: 600, 
               color: '#1a2332',
               marginBottom: 20
             }}>
@@ -379,7 +299,6 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Button
                 size="large"
-                onClick={handleCreateEvent}
                 style={{
                   height: 80,
                   background: '#f0fdfa',
@@ -441,15 +360,6 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
           </Card>
         </div>
       </div>
-
-      {/* Event Form Modal */}
-      <CalendarEventForm
-        mode={formMode}
-        event={selectedEvent}
-        visible={formVisible}
-        onClose={handleFormClose}
-        onSuccess={handleFormSuccess}
-      />
     </>
   );
 }
