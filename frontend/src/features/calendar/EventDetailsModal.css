@@ -1,0 +1,139 @@
+.event-details-modal .ant-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.event-details-modal .ant-modal-body {
+  padding: 0;
+}
+
+.event-details-content {
+  padding: 24px;
+}
+
+.event-header {
+  border-left: 6px solid #2dd4bf;
+  padding-left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a2332;
+  flex: 1;
+}
+
+.allday-tag {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.event-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.detail-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2dd4bf;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.detail-content {
+  flex: 1;
+}
+
+.detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.description-text {
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.event-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .event-details-modal {
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0;
+    top: 0;
+    padding-bottom: 0;
+  }
+
+  .event-details-modal .ant-modal {
+    max-width: 100%;
+  }
+
+  .event-details-content {
+    padding: 16px;
+  }
+
+  .event-title {
+    font-size: 20px;
+  }
+
+  .detail-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .detail-value {
+    font-size: 14px;
+  }
+
+  .event-actions {
+    flex-direction: column;
+  }
+
+  .event-actions .ant-space {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .event-actions .ant-space-item {
+    width: 100%;
+  }
+
+  .event-actions button {
+    width: 100%;
+  }
+}

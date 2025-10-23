@@ -1,43 +1,44 @@
 export interface CalendarEvent {
   id: string;
-  tenantId: string;
-  userId: string | null;
+  tenant_id: string;  // Changed from tenantId
+  user_id: string | null;  // Changed from userId
   title: string;
   description: string | null;
   location: string | null;
-  startTime: string; // ISO 8601 string
-  endTime: string | null;
-  allDay: boolean;
-  recurrenceRule: string | null;
-  externalCalendarId: string | null;
-  externalEventId: string | null;
+  start_time: string; // Changed from startTime - ISO 8601 string
+  end_time: string | null;  // Changed from endTime
+  all_day: boolean;  // Changed from allDay
+  recurrence_rule: string | null;  // Changed from recurrenceRule
+  external_calendar_id: string | null;  // Changed from externalCalendarId
+  external_event_id: string | null;  // Changed from externalEventId
   color: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;  // Changed from createdAt
+  updated_at: string;  // Changed from updatedAt
 }
 
 export interface CalendarEventCreate {
+  tenant_id: string;  // Added - required by backend
   title: string;
   description?: string | null;
   location?: string | null;
-  startTime: string; // ISO 8601 string (UTC)
-  endTime?: string | null;
-  allDay: boolean;
-  userId?: string | null;
+  start_time: string; // Changed from startTime - ISO 8601 string (UTC)
+  end_time?: string | null;  // Changed from endTime
+  all_day: boolean;  // Changed from allDay
+  user_id?: string | null;  // Changed from userId
   color?: string | null;
-  recurrenceRule?: string | null;
+  recurrence_rule?: string | null;  // Changed from recurrenceRule
 }
 
 export interface CalendarEventUpdate {
   title?: string;
   description?: string | null;
   location?: string | null;
-  startTime?: string;
-  endTime?: string | null;
-  allDay?: boolean;
-  userId?: string | null;
+  start_time?: string;  // Changed from startTime
+  end_time?: string | null;  // Changed from endTime
+  all_day?: boolean;  // Changed from allDay
+  user_id?: string | null;  // Changed from userId
   color?: string | null;
-  recurrenceRule?: string | null;
+  recurrence_rule?: string | null;  // Changed from recurrenceRule
 }
 
 export interface EventFormValues {

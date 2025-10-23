@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Spin, Alert } from 'antd';
+import { Spin, Alert, Button, Space, FloatButton } from 'antd';
+import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined } from '@ant-design/icons';
 import CalendarTablet from './CalendarTablet';
 import CalendarMobile from './CalendarMobile';
+import CalendarViews from './CalendarViews';
+import CalendarEventForm from './CalendarEventForm';
 import { getEvents } from '../../services/calendar';
+import { generateRecurringInstances } from '../../utils/recurrence';
+import dayjs from 'dayjs';
 
 // Keep the CalendarEvent type definition locally since we're using snake_case from backend
 export interface CalendarEvent {
@@ -31,6 +36,8 @@ export default function Calendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewType, setViewType] = useState<'dashboard' | 'calendar'>('dashboard'); // Default to dashboard view
+  const [showMobileCreateModal, setShowMobileCreateModal] = useState(false);
 
   // Handle window resize
   useEffect(() => {
@@ -51,18 +58,28 @@ export default function Calendar() {
       setLoading(true);
       setError(null);
 
-      // Get current month's date range
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-      // Format dates as ISO 8601 datetime strings (backend expects datetime, not just date)
-      const startDate = startOfMonth.toISOString();
-      const endDate = endOfMonth.toISOString();
+      // Get a wider date range to support all views (3 months: previous, current, next)
+      const now = dayjs();
+      const startDate = now.subtract(1, 'month').startOf('month').toISOString();
+      const endDate = now.add(1, 'month').endOf('month').toISOString();
 
       // Fetch events from API
       const data = await getEvents(startDate, endDate);
-      setEvents(data as any);
+
+      // Generate recurring instances
+      const allEvents: any[] = [];
+      (data as any[]).forEach(event => {
+        // Add the original event
+        allEvents.push(event);
+
+        // Generate recurring instances if applicable
+        if (event.recurrence_rule) {
+          const instances = generateRecurringInstances(event);
+          allEvents.push(...instances);
+        }
+      });
+
+      setEvents(allEvents as any);
     } catch (err) {
       console.error('Failed to load calendar events:', err);
       setError('Failed to load calendar events. Please try again.');
@@ -74,10 +91,10 @@ export default function Calendar() {
   // Show loading spinner
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         background: '#0a0f1e'
       }}>
@@ -100,10 +117,133 @@ export default function Calendar() {
     );
   }
 
-  // Render appropriate calendar view
-  return isMobile ? (
-    <CalendarMobile events={events} onRefresh={loadEvents} />
-  ) : (
-    <CalendarTablet events={events} onRefresh={loadEvents} />
+
+  // Mobile Header Component with toggle
+  const MobileHeader = () => {
+    if (!isMobile) return null;
+
+    return (
+      <div style={{
+        background: '#1a2332',
+        color: 'white',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+      }}>
+        <h1 style={{
+          margin: 0,
+          fontSize: 18,
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #2dd4bf, #fb7185)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}>
+          Family Hub
+        </h1>
+        <Button
+          type="text"
+          onClick={() => setViewType(viewType === 'calendar' ? 'dashboard' : 'calendar')}
+          style={{
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+        >
+          {viewType === 'calendar' ? 'Dashboard' : 'Calendar'}
+        </Button>
+      </div>
+    );
+  };
+
+  // Render calendar views (new)
+  if (viewType === 'calendar') {
+    return (
+      <>
+        <MobileHeader />
+        <CalendarViews
+          events={events}
+          onRefresh={loadEvents}
+          onNavigateToDashboard={() => setViewType('dashboard')}
+          showViewToggle={!isMobile}
+          currentViewType={viewType}
+          onViewTypeChange={setViewType}
+        />
+        {isMobile && (
+          <>
+            <FloatButton
+              icon={<PlusOutlined />}
+              type="primary"
+              style={{
+                right: 24,
+                bottom: 24,
+                width: 56,
+                height: 56,
+                backgroundColor: '#2dd4bf',
+                borderColor: '#2dd4bf',
+              }}
+              onClick={() => setShowMobileCreateModal(true)}
+            />
+            <CalendarEventForm
+              mode="create"
+              visible={showMobileCreateModal}
+              onClose={() => setShowMobileCreateModal(false)}
+              onSuccess={() => {
+                setShowMobileCreateModal(false);
+                loadEvents();
+              }}
+            />
+          </>
+        )}
+      </>
+    );
+  }
+
+  // Render dashboard view
+  return (
+    <>
+      <MobileHeader />
+      {isMobile ? (
+        <>
+          <CalendarMobile events={events} onRefresh={loadEvents} />
+          <FloatButton
+            icon={<PlusOutlined />}
+            type="primary"
+            style={{
+              right: 24,
+              bottom: 24,
+              width: 56,
+              height: 56,
+              backgroundColor: '#2dd4bf',
+              borderColor: '#2dd4bf',
+            }}
+            onClick={() => setShowMobileCreateModal(true)}
+          />
+          <CalendarEventForm
+            mode="create"
+            visible={showMobileCreateModal}
+            onClose={() => setShowMobileCreateModal(false)}
+            onSuccess={() => {
+              setShowMobileCreateModal(false);
+              loadEvents();
+            }}
+          />
+        </>
+      ) : (
+        <CalendarTablet
+          events={events}
+          onRefresh={loadEvents}
+          onNavigateToCalendar={() => setViewType('calendar')}
+          showViewToggle={true}
+          currentViewType={viewType}
+          onViewTypeChange={setViewType}
+        />
+      )}
+    </>
   );
 }

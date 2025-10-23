@@ -1,5 +1,5 @@
-import { Card, Avatar, Button } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined } from '@ant-design/icons';
+import { Card, Avatar, Button, Space } from 'antd';
+import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -38,9 +38,20 @@ dayjs.tz.setDefault('Europe/London');
 interface CalendarTabletProps {
   events: CalendarEvent[];
   onRefresh?: () => void;
+  onNavigateToCalendar?: () => void;
+  showViewToggle?: boolean;
+  currentViewType?: 'dashboard' | 'calendar';
+  onViewTypeChange?: (type: 'dashboard' | 'calendar') => void;
 }
 
-export default function CalendarTablet({ events, onRefresh }: CalendarTabletProps) {
+export default function CalendarTablet({
+  events,
+  onRefresh,
+  onNavigateToCalendar,
+  showViewToggle = false,
+  currentViewType = 'dashboard',
+  onViewTypeChange
+}: CalendarTabletProps) {
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [selectedEvent, setSelectedEvent] = useState<any>(undefined);
@@ -103,13 +114,14 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
       <div style={{
         background: '#1a2332',
         color: 'white',
-        padding: '16px 50px',
+        padding: '16px 24px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        gap: '16px',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+        minHeight: '56px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
           <h1 style={{
             fontSize: 28,
             fontWeight: 700,
@@ -131,7 +143,32 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Spacer to push toggle and right section to the right */}
+        <div style={{ flex: 1 }}></div>
+
+        {/* Calendar/Dashboard toggle */}
+        {showViewToggle && (
+          <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
+            <Space.Compact>
+              <Button
+                type={currentViewType === 'calendar' ? 'primary' : 'default'}
+                icon={<CalendarOutlined />}
+                onClick={() => onViewTypeChange?.('calendar')}
+              >
+                Calendar
+              </Button>
+              <Button
+                type={currentViewType === 'dashboard' ? 'primary' : 'default'}
+                icon={<AppstoreOutlined />}
+                onClick={() => onViewTypeChange?.('dashboard')}
+              >
+                Dashboard
+              </Button>
+            </Space.Compact>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -198,19 +235,10 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
               }}>
                 Today's Schedule
               </h2>
-              <Button
-                type="text"
-                style={{
-                  color: '#2dd4bf',
-                  fontWeight: 500
-                }}
-              >
-                View All <RightOutlined />
-              </Button>
             </div>
 
             {/* Event List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: '500px', overflowY: 'auto' }}>
               {todayEvents.length === 0 ? (
                 <div style={{
                   textAlign: 'center',
@@ -410,6 +438,7 @@ export default function CalendarTablet({ events, onRefresh }: CalendarTabletProp
 
               <Button
                 size="large"
+                onClick={onNavigateToCalendar}
                 style={{
                   height: 80,
                   background: '#f0fdfa',

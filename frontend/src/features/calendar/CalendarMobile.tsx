@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Card, List, Badge, Typography, Spin, Alert, Modal, Button, Space } from 'antd';
-import { LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
-import type { Dayjs } from 'dayjs';
+import { useState } from 'react';
+import { Card, List, Badge, Typography } from 'antd';
+import { ClockCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import api from '../../services/api';
 
 // Enable timezone plugins
 dayjs.extend(utc);
@@ -32,421 +30,144 @@ interface CalendarEvent {
   };
 }
 
-export default function CalendarMobile() {
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+interface CalendarMobileProps {
+  events: CalendarEvent[];
+  onRefresh?: () => void;
+}
 
-  // Fetch events from API
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api.get('/api/v1/calendar/events');
-      console.log('Fetched events:', response.data);
-      // Ensure we're setting an array
-      setEvents(Array.isArray(response.data) ? response.data : []);
-    } catch (err: any) {
-      console.error('Error fetching events:', err);
-      const errorMsg = err.response?.data?.detail || err.message || 'Failed to load events';
-      setError(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Convert UTC time string to local dayjs object
-  const parseEventTime = (utcTimeString: string): Dayjs => {
+export default function CalendarMobile({ events }: CalendarMobileProps) {
+  // Parse UTC time and convert to local timezone
+  const parseEventTime = (utcTimeString: string) => {
     return dayjs.utc(utcTimeString).tz('Europe/London');
   };
 
-  // Get events for a specific date
-  const getEventsForDate = (date: Dayjs) => {
-    return events.filter(event => {
-      const eventDate = parseEventTime(event.start_time);
-      return eventDate.format('YYYY-MM-DD') === date.format('YYYY-MM-DD');
-    });
-  };
+  // Group events by date
+  const today = dayjs().startOf('day');
+  const todayEvents = events.filter(e => parseEventTime(e.start_time).isSame(today, 'day'));
+  const upcomingEvents = events.filter(e => parseEventTime(e.start_time).isAfter(today, 'day'))
+    .sort((a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix())
+    .slice(0, 10);
 
-  // Get events for the current week
-  const getEventsForWeek = () => {
-    const weekStart = selectedDate.startOf('week');
-    const weekEnd = selectedDate.endOf('week');
-    
-    return events.filter(event => {
-      const eventDate = parseEventTime(event.start_time);
-      return eventDate.isAfter(weekStart.subtract(1, 'day')) && 
-             eventDate.isBefore(weekEnd.add(1, 'day'));
-    }).sort((a, b) => {
-      const timeA = parseEventTime(a.start_time);
-      const timeB = parseEventTime(b.start_time);
-      return timeA.diff(timeB);
-    });
-  };
-
-  // Navigation functions
-  const goToPreviousDay = () => {
-    setSelectedDate(selectedDate.subtract(1, 'day'));
-  };
-
-  const goToNextDay = () => {
-    setSelectedDate(selectedDate.add(1, 'day'));
-  };
-
-  const goToToday = () => {
-    setSelectedDate(dayjs());
-  };
-
-  const goToPreviousWeek = () => {
-    setSelectedDate(selectedDate.subtract(1, 'week'));
-  };
-
-  const goToNextWeek = () => {
-    setSelectedDate(selectedDate.add(1, 'week'));
-  };
-
-  // Group events by day for week view
-  const groupEventsByDay = () => {
-    const weekStart = selectedDate.startOf('week');
-    const days: { date: Dayjs; events: CalendarEvent[] }[] = [];
-    
-    for (let i = 0; i < 7; i++) {
-      const day = weekStart.add(i, 'day');
-      days.push({
-        date: day,
-        events: getEventsForDate(day)
-      });
-    }
-    
-    return days;
-  };
-
-  if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        padding: 16
-      }}>
-        <Spin size="large" tip="Loading calendar..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ padding: 16 }}>
-        <Alert
-          message="Error Loading Calendar"
-          description={error}
-          type="error"
-          showIcon
-        />
-      </div>
-    );
-  }
-
-  const currentEvents = viewMode === 'day' ? getEventsForDate(selectedDate) : getEventsForWeek();
+  const formatTime = (utcTimeString: string) => parseEventTime(utcTimeString).format('h:mm A');
+  const formatDate = (utcTimeString: string) => parseEventTime(utcTimeString).format('ddd, MMM D');
 
   return (
-    <div style={{ background: '#f0f2f5', minHeight: '100vh', paddingBottom: 60 }}>
-      {/* Header */}
-      <Card 
-        bordered={false} 
-        style={{ 
-          borderRadius: 0, 
-          marginBottom: 8,
-          position: 'sticky',
-          top: 0,
-          zIndex: 100
+    <div style={{ background: '#fef7f0', minHeight: '100vh', padding: '16px', paddingBottom: '80px' }}>
+      {/* Weather Widget */}
+      <Card
+        style={{
+          marginBottom: 16,
+          borderRadius: 12,
+          background: 'linear-gradient(135deg, #2dd4bf 0%, #14b8a6 100%)',
+          border: 'none',
+          color: 'white',
         }}
       >
-        <div style={{ marginBottom: 12 }}>
-          <Space>
-            <Button 
-              type={viewMode === 'day' ? 'primary' : 'default'}
-              onClick={() => setViewMode('day')}
-              size="small"
-            >
-              Day
-            </Button>
-            <Button 
-              type={viewMode === 'week' ? 'primary' : 'default'}
-              onClick={() => setViewMode('week')}
-              size="small"
-            >
-              Week
-            </Button>
-            <Button 
-              icon={<CalendarOutlined />}
-              onClick={goToToday}
-              size="small"
-            >
-              Today
-            </Button>
-          </Space>
-        </div>
-
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center' 
-        }}>
-          <Button
-            icon={<LeftOutlined />}
-            onClick={viewMode === 'day' ? goToPreviousDay : goToPreviousWeek}
-            type="text"
-            size="large"
-          />
-          
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <Title level={4} style={{ margin: 0 }}>
-              {viewMode === 'day' 
-                ? selectedDate.format('MMMM D, YYYY')
-                : `Week of ${selectedDate.startOf('week').format('MMM D')}`
-              }
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <Text style={{ color: 'white', fontSize: 14 }}>
+              {dayjs().format('dddd, MMMM D, YYYY')}
+            </Text>
+            <Title level={2} style={{ margin: '8px 0 0 0', color: 'white' }}>
+              {dayjs().format('h:mm A')}
             </Title>
-            <Text type="secondary">
-              {viewMode === 'day' 
-                ? selectedDate.format('dddd')
-                : `${selectedDate.startOf('week').format('MMM D')} - ${selectedDate.endOf('week').format('MMM D')}`
-              }
-            </Text>
           </div>
-          
-          <Button
-            icon={<RightOutlined />}
-            onClick={viewMode === 'day' ? goToNextDay : goToNextWeek}
-            type="text"
-            size="large"
-          />
-        </div>
-
-        <div style={{ marginTop: 12, textAlign: 'center' }}>
-          <Badge
-            count={currentEvents.length}
-            style={{ backgroundColor: '#52c41a' }}
-          >
-            <Text strong>
-              {currentEvents.length === 0 ? 'No events' : 
-               currentEvents.length === 1 ? '1 event' : 
-               `${currentEvents.length} events`}
-            </Text>
-          </Badge>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: 40 }}>☀️</span>
+            <div style={{ fontSize: 24, fontWeight: 600 }}>18°C</div>
+            <div style={{ fontSize: 12, opacity: 0.9 }}>Sunny</div>
+          </div>
         </div>
       </Card>
 
-      {/* Day View */}
-      {viewMode === 'day' && (
-        <>
-          {currentEvents.length > 0 ? (
-            <List
-              dataSource={currentEvents.sort((a, b) => {
-                const timeA = parseEventTime(a.start_time);
-                const timeB = parseEventTime(b.start_time);
-                return timeA.diff(timeB);
-              })}
-              renderItem={(event) => {
-                const startTime = parseEventTime(event.start_time);
-                const endTime = event.end_time ? parseEventTime(event.end_time) : null;
-
-                return (
-                  <Card
-                    style={{ 
-                      margin: '8px 12px',
-                      borderLeft: `4px solid ${event.color || '#1890ff'}`,
-                      cursor: 'pointer'
-                    }}
-                    size="small"
-                    onClick={() => setSelectedEvent(event)}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 8 }}>
-                        <Text strong style={{ fontSize: '16px', flex: 1 }}>
-                          {String(event.title || 'Untitled Event')}
-                        </Text>
-                        <Badge
-                          color={event.color || '#1890ff'}
-                          style={{ marginLeft: 8 }}
-                        />
-                      </div>
-                      
-                      <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                        {event.all_day ? (
-                          '🕐 All day event'
-                        ) : (
-                          <>
-                            🕐 {startTime.format('HH:mm')}
-                            {endTime && ` - ${endTime.format('HH:mm')}`}
-                          </>
-                        )}
-                      </Text>
-                      
-                      {event.location && (
-                        <Text type="secondary" style={{ display: 'block', fontSize: '12px' }}>
-                          📍 {String(event.location)}
-                        </Text>
-                      )}
-                      
-                      {event.user && event.user.name && (
-                        <Text style={{ display: 'block', fontSize: '12px', marginTop: 4 }}>
-                          👤 {String(event.user.name)}
-                        </Text>
-                      )}
-                    </div>
-                  </Card>
-                );
-              }}
-            />
-          ) : (
-            <Card style={{ margin: '8px 12px', textAlign: 'center', padding: '40px 0' }}>
-              <CalendarOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} />
-              <div>
-                <Text type="secondary" style={{ fontSize: '16px' }}>
-                  No events scheduled for this day
-                </Text>
-              </div>
-            </Card>
-          )}
-        </>
-      )}
-
-      {/* Week View */}
-      {viewMode === 'week' && (
-        <div style={{ padding: '0 12px' }}>
-          {groupEventsByDay().map(({ date, events: dayEvents }) => (
-            <Card
-              key={date.format('YYYY-MM-DD')}
-              size="small"
-              style={{ marginBottom: 8 }}
-              title={
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text strong>
-                    {date.format('ddd, MMM D')}
-                  </Text>
-                  <Badge
-                    count={dayEvents.length}
-                    style={{ backgroundColor: dayEvents.length > 0 ? '#52c41a' : '#d9d9d9' }}
-                  />
-                </div>
-              }
-            >
-              {dayEvents.length > 0 ? (
-                <List
-                  size="small"
-                  dataSource={dayEvents.sort((a, b) => {
-                    const timeA = parseEventTime(a.start_time);
-                    const timeB = parseEventTime(b.start_time);
-                    return timeA.diff(timeB);
-                  })}
-                  renderItem={(event) => {
-                    const startTime = parseEventTime(event.start_time);
-                    const endTime = event.end_time ? parseEventTime(event.end_time) : null;
-
-                    return (
-                      <List.Item
-                        onClick={() => setSelectedEvent(event)}
-                        style={{ 
-                          cursor: 'pointer',
-                          borderLeft: `3px solid ${event.color || '#1890ff'}`,
-                          paddingLeft: 8,
-                          marginBottom: 4
-                        }}
-                      >
-                        <List.Item.Meta
-                          title={
-                            <Text strong style={{ fontSize: '14px' }}>
-                              {String(event.title || 'Untitled Event')}
-                            </Text>
-                          }
-                          description={
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {event.all_day 
-                                ? 'All day' 
-                                : `${startTime.format('HH:mm')}${endTime ? ` - ${endTime.format('HH:mm')}` : ''}`
-                              }
-                              {event.location && ` • ${event.location}`}
-                            </Text>
-                          }
-                        />
-                      </List.Item>
-                    );
-                  }}
-                />
-              ) : (
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  No events
-                </Text>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Event Details Modal */}
-      <Modal
-        title="Event Details"
-        open={!!selectedEvent}
-        onCancel={() => setSelectedEvent(null)}
-        footer={null}
-        style={{ top: 20 }}
+      {/* Today's Schedule */}
+      <Card
+        title={<Title level={4} style={{ margin: 0 }}>Today's Schedule</Title>}
+        style={{ marginBottom: 16, borderRadius: 12, border: 'none' }}
       >
-        {selectedEvent && (
-          <div>
-            <Title level={4} style={{ marginTop: 0 }}>
-              {selectedEvent.title}
-            </Title>
-            
-            <div style={{ marginBottom: 16 }}>
-              <Text strong>Time: </Text>
-              <Text>
-                {selectedEvent.all_day ? (
-                  'All day event'
-                ) : (
-                  <>
-                    {parseEventTime(selectedEvent.start_time).format('ddd, MMM D, YYYY [at] HH:mm')}
-                    {selectedEvent.end_time && 
-                      ` - ${parseEventTime(selectedEvent.end_time).format('HH:mm')}`
-                    }
-                  </>
-                )}
-              </Text>
-            </div>
-
-            {selectedEvent.location && (
-              <div style={{ marginBottom: 16 }}>
-                <Text strong>Location: </Text>
-                <Text>{selectedEvent.location}</Text>
-              </div>
-            )}
-
-            {selectedEvent.description && (
-              <div style={{ marginBottom: 16 }}>
-                <Text strong>Description: </Text>
-                <div style={{ marginTop: 8 }}>
-                  <Text>{selectedEvent.description}</Text>
-                </div>
-              </div>
-            )}
-
-            {selectedEvent.user && (
-              <div style={{ marginBottom: 16 }}>
-                <Text strong>Assigned to: </Text>
-                <Text>{selectedEvent.user.name}</Text>
-              </div>
-            )}
+        {todayEvents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b' }}>
+            No events scheduled for today
           </div>
+        ) : (
+          <List
+            dataSource={todayEvents}
+            renderItem={(event) => (
+              <List.Item
+                style={{
+                  padding: '12px 0',
+                  borderLeft: `4px solid ${event.color || '#2dd4bf'}`,
+                  paddingLeft: 12,
+                  marginBottom: 8,
+                  background: '#fef7f0',
+                  borderRadius: 8,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>
+                    {event.title}
+                  </div>
+                  <div style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ClockCircleOutlined />
+                    {event.all_day ? 'All Day' : formatTime(event.start_time)}
+                    {event.location && (
+                      <>
+                        <EnvironmentOutlined />
+                        {event.location}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </List.Item>
+            )}
+          />
         )}
-      </Modal>
+      </Card>
+
+      {/* Coming Up */}
+      <Card
+        title={<Title level={4} style={{ margin: 0 }}>Coming Up</Title>}
+        style={{ marginBottom: 16, borderRadius: 12, border: 'none' }}
+      >
+        {upcomingEvents.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: '#64748b' }}>
+            No upcoming events
+          </div>
+        ) : (
+          <List
+            dataSource={upcomingEvents}
+            renderItem={(event) => (
+              <List.Item
+                style={{
+                  padding: '12px 0',
+                  borderLeft: `4px solid ${event.color || '#2dd4bf'}`,
+                  paddingLeft: 12,
+                  marginBottom: 8,
+                  background: '#fef7f0',
+                  borderRadius: 8,
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>
+                    {event.title}
+                  </div>
+                  <div style={{ fontSize: 14, color: '#64748b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ClockCircleOutlined />
+                    {formatDate(event.start_time)}
+                    {!event.all_day && ` • ${formatTime(event.start_time)}`}
+                    {event.location && (
+                      <>
+                        <EnvironmentOutlined />
+                        {event.location}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </List.Item>
+            )}
+          />
+        )}
+      </Card>
     </div>
   );
 }

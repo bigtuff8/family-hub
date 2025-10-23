@@ -1,0 +1,222 @@
+.calendar-views-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a0f1e 0%, #1a2332 100%);
+  padding: 20px;
+}
+
+.calendar-views-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Perfect vertical centering */
+  margin-bottom: 24px;
+  gap: 16px;
+  background: #1a2332;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+  min-height: 56px; /* Ensure consistent height */
+}
+
+.header-left {
+  display: flex;
+  gap: 12px;
+  align-items: center; /* Vertical centering within left section */
+  flex: 0 0 auto;
+}
+
+.header-center {
+  display: flex;
+  align-items: center; /* Vertical centering within center section */
+  flex: 1;
+  justify-content: center;
+}
+
+.header-toggle {
+  display: flex;
+  align-items: center; /* Vertical centering for toggle */
+  flex: 0 0 auto;
+}
+
+.header-right {
+  display: flex;
+  align-items: center; /* Vertical centering within right section */
+  flex: 0 0 auto;
+}
+
+.add-event-btn {
+  background: #2dd4bf;
+  border-color: #2dd4bf;
+  border-radius: 8px;
+  font-weight: 600;
+  height: 40px;
+  padding: 0 20px;
+}
+
+.add-event-btn:hover {
+  background: #14b8a6;
+  border-color: #14b8a6;
+}
+
+.today-btn {
+  border-radius: 8px;
+  height: 40px;
+  font-weight: 600;
+  background: #fef7f0;
+  border-color: #fef7f0;
+  color: #1a2332;
+}
+
+.today-btn:hover {
+  background: #fde8d5;
+  border-color: #fde8d5;
+}
+
+.nav-btn {
+  border-radius: 8px;
+  height: 40px;
+  background: #fef7f0;
+  border-color: #fef7f0;
+  color: #1a2332;
+}
+
+.nav-btn:hover {
+  background: #fde8d5;
+  border-color: #fde8d5;
+}
+
+.date-range-display {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fef7f0;
+  min-width: 280px;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.view-switcher {
+  margin: 0;
+}
+
+.view-switcher .ant-tabs-nav {
+  margin: 0;
+  background: transparent !important;
+}
+
+.view-switcher .ant-tabs-nav::before {
+  display: none !important;
+}
+
+.view-switcher .ant-tabs-nav-wrap {
+  background: transparent !important;
+}
+
+.view-switcher .ant-tabs-tab {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-weight: 600;
+  padding: 8px 16px;
+}
+
+.view-switcher .ant-tabs-tab:hover {
+  color: #2dd4bf;
+}
+
+.view-switcher .ant-tabs-tab-active {
+  background: #2dd4bf;
+  border-radius: 8px;
+}
+
+.view-switcher .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #fef7f0 !important; /* White/cream color for visibility */
+  font-weight: 700;
+}
+
+.view-switcher .ant-tabs-ink-bar {
+  display: none !important;
+}
+
+.calendar-views-content {
+  background: #fef7f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .calendar-views-container {
+    padding: 0;
+    padding-bottom: 80px; /* Space for FAB */
+    min-height: 100vh;
+  }
+
+  .calendar-views-header {
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+    background: #fef7f0;
+  }
+
+  .header-left {
+    display: none; /* Hide Add Event and Jump to Date on mobile */
+  }
+
+  .header-center {
+    order: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Center the navigation buttons container */
+  .header-center > .ant-space {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Mobile view selector - Day/Week/Today buttons */
+  .mobile-view-selector {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .mobile-view-selector button {
+    flex: 0 0 auto;
+    min-width: 80px;
+  }
+
+  .nav-btn {
+    height: 36px;
+  }
+
+  .date-range-display {
+    font-size: 16px;
+    min-width: auto;
+    padding: 0 12px;
+    text-align: center;
+  }
+
+  /* Hide desktop view tabs on mobile */
+  .header-right {
+    display: none;
+  }
+
+  .calendar-views-content {
+    border-radius: 0;
+  }
+}
+
+/* Tablet styles */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .date-range-display {
+    min-width: 240px;
+    font-size: 16px;
+  }
+}

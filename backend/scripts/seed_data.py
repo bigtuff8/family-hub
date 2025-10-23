@@ -19,13 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.database import AsyncSessionLocal, engine, Base
 from shared.models import Tenant, User, CalendarEvent
 
-# Fixed UUIDs for Brown Family
-TENANT_ID = UUID('00000000-0000-0000-0000-000000000001')
+# Fixed UUIDs for Brown Family - MUST MATCH FRONTEND
+TENANT_ID = UUID('10000000-0000-0000-0000-000000000000')  # CORRECTED
 USER_JAMES_ID = UUID('10000000-0000-0000-0000-000000000001')
 USER_NICOLA_ID = UUID('10000000-0000-0000-0000-000000000002')
 USER_TOMMY_ID = UUID('10000000-0000-0000-0000-000000000003')
 USER_HARRY_ID = UUID('10000000-0000-0000-0000-000000000004')
-USER_SARAH_ID = UUID('10000000-0000-0000-0000-000000000005')  # Extended family
 
 # Family color scheme
 COLOR_JAMES = "#e30613"    # Liverpool red
@@ -41,6 +40,13 @@ async def seed_database():
         try:
             print("🌱 Starting database seeding for Brown Family...")
             
+            # Check if tenant already exists
+            existing_tenant = await session.get(Tenant, TENANT_ID)
+            if existing_tenant:
+                print("⚠️  Brown family tenant already exists. Skipping seed.")
+                print("   Run with --clear flag to reset: python scripts/seed_data.py --clear")
+                return
+            
             # Create tenant
             print("\n📋 Creating tenant...")
             tenant = Tenant(
@@ -55,7 +61,7 @@ async def seed_database():
             )
             session.add(tenant)
             await session.flush()
-            print(f"✅ Created tenant: {tenant.name}")
+            print(f"✅ Created tenant: {tenant.name} (ID: {TENANT_ID})")
             
             # Create users
             print("\n👥 Creating family members...")
@@ -68,7 +74,7 @@ async def seed_database():
                     role="admin",
                     date_of_birth=datetime(1982, 3, 10).date(),
                     avatar_url=None,  # Will use initials
-                    settings={"favorite_color": COLOR_JAMES}
+                    settings={"color": COLOR_JAMES}
                 ),
                 User(
                     id=USER_NICOLA_ID,
@@ -78,7 +84,7 @@ async def seed_database():
                     role="admin",
                     date_of_birth=datetime(1980, 10, 25).date(),
                     avatar_url=None,
-                    settings={"favorite_color": COLOR_NICOLA}
+                    settings={"color": COLOR_NICOLA}
                 ),
                 User(
                     id=USER_TOMMY_ID,
@@ -88,31 +94,24 @@ async def seed_database():
                     role="child",
                     date_of_birth=datetime(2012, 5, 4).date(),
                     avatar_url=None,
-                    settings={"favorite_color": COLOR_TOMMY}
+                    settings={"color": COLOR_TOMMY}
                 ),
                 User(
                     id=USER_HARRY_ID,
                     tenant_id=TENANT_ID,
                     name="Harry",
-                    email="harry.m.brown@icloud.com",
+                    email="Harry.m.brown@icloud.com",  # CORRECTED - capital H
                     role="child",
                     date_of_birth=datetime(2018, 10, 23).date(),
                     avatar_url=None,
-                    settings={"favorite_color": COLOR_HARRY}
-                ),
-                User(
-                    id=USER_SARAH_ID,
-                    tenant_id=TENANT_ID,
-                    name="Sarah Roberts-Brown",
-                    email="sarah.roberts.brown@example.com",
-                    role="guest",
-                    settings={"favorite_color": COLOR_NICOLA}
+                    settings={"color": COLOR_HARRY}
                 )
             ]
             
             for user in users:
                 session.add(user)
-                print(f"✅ Created user: {user.name} ({user.role})")
+                age = (datetime.now().date() - user.date_of_birth).days // 365
+                print(f"✅ {user.name} (age {age}, {user.role}) - {user.email}")
             
             await session.flush()
             
@@ -231,96 +230,9 @@ async def seed_database():
                 color=COLOR_TOMMY
             ))
             
-            # === DAILY SCHOOL RUNS ===
-            
-            # School drop-offs and pickups (recurring)
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_TOMMY_ID,
-                title="🎒 Tommy Drop-off",
-                description="Oulton Academy",
-                location="Oulton Academy",
-                start_time=datetime.combine(next_mon, time(8, 10)),
-                end_time=datetime.combine(next_mon, time(8, 30)),
-                color=COLOR_TOMMY,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-            ))
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_HARRY_ID,
-                title="🎒 Harry Drop-off",
-                description="Rothwell Primary School",
-                location="Rothwell Primary School",
-                start_time=datetime.combine(next_mon, time(8, 30)),
-                end_time=datetime.combine(next_mon, time(8, 55)),
-                color=COLOR_HARRY,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-            ))
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_TOMMY_ID,
-                title="🎒 Tommy Pick-up",
-                description="From Rothwell Sports Centre",
-                location="Rothwell Sports Centre",
-                start_time=datetime.combine(next_mon, time(14, 55)),
-                end_time=datetime.combine(next_mon, time(15, 10)),
-                color=COLOR_TOMMY,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,WE"
-            ))
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_TOMMY_ID,
-                title="🎒 Tommy Pick-up (After School)",
-                description="After school football club\nPick up from main gates",
-                location="Oulton Academy - Main Gates",
-                start_time=datetime.combine(next_tue, time(15, 40)),
-                end_time=datetime.combine(next_tue, time(15, 55)),
-                color=COLOR_TOMMY,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=TU,TH,FR"
-            ))
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_HARRY_ID,
-                title="🎒 Harry Pick-up",
-                description="Rothwell Primary School",
-                location="Rothwell Primary School",
-                start_time=datetime.combine(next_mon, time(15, 15)),
-                end_time=datetime.combine(next_mon, time(15, 30)),
-                color=COLOR_HARRY,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-            ))
-            
-            # === WORK SCHEDULES ===
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_JAMES_ID,
-                title="💼 Work",
-                description="Airedale Group",
-                location="Office/WFH",
-                start_time=datetime.combine(next_mon, time(8, 30)),
-                end_time=datetime.combine(next_mon, time(17, 0)),
-                color=COLOR_JAMES,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-            ))
-            
-            events.append(CalendarEvent(
-                tenant_id=TENANT_ID,
-                user_id=USER_NICOLA_ID,
-                title="💼 Work",
-                description="Work day",
-                start_time=datetime.combine(next_mon, time(9, 0)),
-                end_time=datetime.combine(next_mon, time(17, 30)),
-                color=COLOR_NICOLA,
-                recurrence_rule="FREQ=WEEKLY;BYDAY=MO,TU,TH"
-            ))
-            
             # === UPCOMING BIRTHDAYS ===
             
+            # Harry's birthday - 23rd October
             harry_bday = datetime(2025, 10, 23).date()
             if harry_bday >= today:
                 events.append(CalendarEvent(
@@ -333,6 +245,7 @@ async def seed_database():
                     color=COLOR_HARRY
                 ))
             
+            # Nicola's birthday - 25th October
             nicola_bday = datetime(2025, 10, 25).date()
             if nicola_bday >= today:
                 events.append(CalendarEvent(
@@ -345,12 +258,13 @@ async def seed_database():
                     color=COLOR_NICOLA
                 ))
             
+            # Sarah's birthday - 27th October
             sarah_bday = datetime(2025, 10, 27).date()
             if sarah_bday >= today:
                 events.append(CalendarEvent(
                     tenant_id=TENANT_ID,
                     title="🎂 Sarah's Birthday",
-                    description="Sarah Roberts-Brown's birthday",
+                    description="Sarah Roberts-Brown's birthday (James's sister)",
                     start_time=datetime.combine(sarah_bday, time(0, 0)),
                     all_day=True,
                     color=COLOR_FAMILY
@@ -372,37 +286,42 @@ async def seed_database():
             # Add all events
             for event in events:
                 session.add(event)
-                print(f"✅ Created event: {event.title}")
             
             await session.commit()
             
+            print(f"✅ Created {len(events)} calendar events")
+            
             print("\n✨ Database seeding completed successfully!")
-            print(f"\n📊 Created:")
+            print(f"\n📊 Summary:")
             print(f"   - 1 tenant (Brown Family)")
-            print(f"   - 5 users (James, Nicola, Tommy, Harry, Sarah)")
+            print(f"   - 4 family members (James, Nicola, Tommy, Harry)")
             print(f"   - {len(events)} calendar events")
             print(f"\n🏠 Family Details:")
             print(f"   📍 Location: Rothwell, Leeds")
             print(f"   🎨 Colors: James=Red, Nicola=Pink, Tommy=Green, Harry=Blue")
-            print(f"   ⚽ Tommy: 3x football training, cricket, matches")
-            print(f"   ⚽ Harry: 1x football training")
+            print(f"   ⚽ Tommy: 3x football training, cricket, weekend matches")
+            print(f"   ⚽ Harry: 1x football training (Monday)")
             print(f"   🎂 Upcoming: Harry (23 Oct), Nicola (25 Oct), Sarah (27 Oct)")
-            print("\n🎉 You can now use the API with real Brown family data!")
+            print("\n🎉 You can now create events via the API!")
             
         except Exception as e:
             print(f"\n❌ Error seeding database: {e}")
+            import traceback
+            traceback.print_exc()
             await session.rollback()
             raise
 
 async def clear_database():
     """Clear all data from database (useful for re-seeding)"""
+    print("🗑️  Clearing database...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    print("🗑️  Database cleared")
+    print("✅ Database cleared and tables recreated")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--clear":
         asyncio.run(clear_database())
-    
-    asyncio.run(seed_database())
+        print("\n💡 Now run without --clear flag to seed fresh data")
+    else:
+        asyncio.run(seed_database())

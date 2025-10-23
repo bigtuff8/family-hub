@@ -59,6 +59,23 @@ const FAMILY_MEMBERS: User[] = [
   { id: '10000000-0000-0000-0000-000000000004', name: 'Harry', color: '#1D428A' },   // Leeds blue
 ];
 
+// ============================================
+// 🔴 TECHNICAL DEBT - Phase 1.5 Required
+// ============================================
+// TODO(Phase 1.5): Replace hard-coded tenant_id with authentication context
+// This is temporarily hard-coded for Phase 1 development only.
+// 
+// Future implementation:
+//   const { currentTenant } = useAuth();
+//   const eventData = {
+//     tenant_id: currentTenant.id, // Dynamic from logged-in user
+//     ...
+//   };
+// 
+// Related: docs/technical-debt.md #TD-001
+// ============================================
+const BROWN_FAMILY_TENANT_ID = '10000000-0000-0000-0000-000000000000';
+
 // Helper to get next 30-minute increment
 const getNext30MinIncrement = (date?: Dayjs) => {
   const base = date || dayjs();
@@ -101,6 +118,34 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [addressLoading, setAddressLoading] = useState(false);
   const [externalGuests, setExternalGuests] = useState<string[]>([]);
   const [guestInputValue, setGuestInputValue] = useState('');
+  const [recurrenceType, setRecurrenceType] = useState<string>('none');
+  const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
+  const [recurrenceEndType, setRecurrenceEndType] = useState<string>('never');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<Dayjs | null>(null);
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(10);
+
+  // Helper function to update end date/time based on start date/time
+  const updateEndDateTime = () => {
+    const startDate = form.getFieldValue('startDate');
+    const startTime = form.getFieldValue('startTime');
+    
+    if (startDate && startTime) {
+      // Combine start date with start time
+      const newStartDateTime = startDate
+        .hour(startTime.hour())
+        .minute(startTime.minute())
+        .second(0);
+      
+      // Calculate end time (+30 minutes)
+      const newEndDateTime = newStartDateTime.add(30, 'minutes');
+      
+      // Update both end date and end time
+      form.setFieldsValue({ 
+        endDate: newEndDateTime,
+        endTime: newEndDateTime 
+      });
+    }
+  };
 
   // Search addresses using Nominatim (OpenStreetMap)
   const searchAddress = async (query: string) => {
@@ -216,10 +261,18 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
           attendees: [],
           location: '',
           color: '#1890ff',
+          recurrenceType: 'none',
+          recurrenceEndType: 'never',
+          recurrenceEndDate: null,
+          recurrenceCount: 10,
         });
         setAllDay(false);
         setSelectedLead(undefined);
         setExternalGuests([]);
+        setRecurrenceType('none');
+        setRecurrenceEndType('never');
+        setRecurrenceEndDate(null);
+        setRecurrenceCount(10);
       }
     }
   }, [visible, mode, event, defaultDate, form]);
@@ -289,19 +342,47 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         return;
       }
 
-      // Convert to UTC for storage (subtract 1 hour for BST)
-      const startTimeUTC = startTime.subtract(1, 'hour').toISOString();
-      const endTimeUTC = endTime ? endTime.subtract(1, 'hour').toISOString() : null;
+      // Convert to UTC for storage - dayjs automatically handles BST/GMT conversion
+      const startTimeUTC = startTime.utc().toISOString();
+      const endTimeUTC = endTime ? endTime.utc().toISOString() : null;
+
+      // Build recurrence rule if applicable
+      let recurrenceRule = null;
+      if (values.recurrenceType && values.recurrenceType !== 'none') {
+        const rule: any = {
+          freq: values.recurrenceType === 'fortnightly' ? 'weekly' : values.recurrenceType,
+        };
+
+        // For fortnightly, set interval to 2
+        if (values.recurrenceType === 'fortnightly') {
+          rule.interval = 2;
+        }
+
+        // Add day of week for weekly/fortnightly recurrence
+        if ((values.recurrenceType === 'weekly' || values.recurrenceType === 'fortnightly') && values.recurrenceDays && values.recurrenceDays.length > 0) {
+          rule.byday = values.recurrenceDays.join(',');
+        }
+
+        if (values.recurrenceEndType === 'on_date' && values.recurrenceEndDate) {
+          rule.until = dayjs(values.recurrenceEndDate).endOf('day').utc().toISOString();
+        } else if (values.recurrenceEndType === 'after_count' && values.recurrenceCount) {
+          rule.count = values.recurrenceCount;
+        }
+
+        recurrenceRule = JSON.stringify(rule);
+      }
 
       const eventData = {
+        tenant_id: BROWN_FAMILY_TENANT_ID,
         title: values.title,
         description: values.description || null,
-        startTime: startTimeUTC,
-        endTime: endTimeUTC,
-        allDay: values.allDay,
-        userId: values.eventLead || null,
+        start_time: startTimeUTC,
+        end_time: endTimeUTC,
+        all_day: values.allDay,
+        user_id: values.eventLead || null,
         location: values.location || null,
         color: typeof values.color === 'string' ? values.color : values.color.toHexString(),
+        recurrence_rule: recurrenceRule,
         // TODO: Send attendees and externalGuests when backend supports it
         // attendees: values.attendees || [],
         // externalGuests: externalGuests,
@@ -432,7 +513,11 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
             rules={[{ required: true, message: 'Required' }]}
             style={{ flex: 1 }}
           >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker 
+              style={{ width: '100%' }} 
+              format="DD/MM/YYYY"
+              onChange={() => updateEndDateTime()}
+            />
           </Form.Item>
 
           {!allDay && (
@@ -442,7 +527,12 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
               rules={[{ required: !allDay, message: 'Required' }]}
               style={{ flex: 1 }}
             >
-              <TimePicker style={{ width: '100%' }} format="HH:mm" minuteStep={15} />
+              <TimePicker 
+                style={{ width: '100%' }} 
+                format="HH:mm" 
+                minuteStep={15}
+                onChange={() => updateEndDateTime()}
+              />
             </Form.Item>
           )}
         </Space>
@@ -466,6 +556,86 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
             </Form.Item>
           )}
         </Space>
+
+        <Divider>Recurrence</Divider>
+
+        <Form.Item label="Repeat" name="recurrenceType">
+          <Select
+            size="large"
+            value={recurrenceType}
+            onChange={setRecurrenceType}
+            options={[
+              { label: 'Does not repeat', value: 'none' },
+              { label: 'Daily', value: 'daily' },
+              { label: 'Weekly', value: 'weekly' },
+              { label: 'Fortnightly (every 2 weeks)', value: 'fortnightly' },
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Annually', value: 'annually' },
+            ]}
+          />
+        </Form.Item>
+
+        {recurrenceType === 'weekly' && (
+          <Form.Item label="Repeat on" name="recurrenceDays">
+            <Select
+              mode="multiple"
+              size="large"
+              placeholder="Select days of the week"
+              value={recurrenceDays}
+              onChange={setRecurrenceDays}
+              options={[
+                { label: 'Monday', value: 'MO' },
+                { label: 'Tuesday', value: 'TU' },
+                { label: 'Wednesday', value: 'WE' },
+                { label: 'Thursday', value: 'TH' },
+                { label: 'Friday', value: 'FR' },
+                { label: 'Saturday', value: 'SA' },
+                { label: 'Sunday', value: 'SU' },
+              ]}
+            />
+          </Form.Item>
+        )}
+
+        {recurrenceType !== 'none' && (
+          <>
+            <Form.Item label="Ends" name="recurrenceEndType">
+              <Select
+                size="large"
+                value={recurrenceEndType}
+                onChange={setRecurrenceEndType}
+                options={[
+                  { label: 'Never', value: 'never' },
+                  { label: 'On date', value: 'on_date' },
+                  { label: 'After occurrences', value: 'after_count' },
+                ]}
+              />
+            </Form.Item>
+
+            {recurrenceEndType === 'on_date' && (
+              <Form.Item label="End Date" name="recurrenceEndDate">
+                <DatePicker
+                  style={{ width: '100%' }}
+                  format="DD/MM/YYYY"
+                  value={recurrenceEndDate}
+                  onChange={setRecurrenceEndDate}
+                />
+              </Form.Item>
+            )}
+
+            {recurrenceEndType === 'after_count' && (
+              <Form.Item label="Number of Occurrences" name="recurrenceCount">
+                <Input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={recurrenceCount}
+                  onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 10)}
+                  size="large"
+                />
+              </Form.Item>
+            )}
+          </>
+        )}
 
         <Divider>People</Divider>
 

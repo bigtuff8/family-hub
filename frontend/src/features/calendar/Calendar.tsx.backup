@@ -1,0 +1,109 @@
+import { useState, useEffect } from 'react';
+import { Spin, Alert } from 'antd';
+import CalendarTablet from './CalendarTablet';
+import CalendarMobile from './CalendarMobile';
+import { getEvents } from '../../services/calendar';
+
+// Keep the CalendarEvent type definition locally since we're using snake_case from backend
+export interface CalendarEvent {
+  id: string;
+  tenant_id: string;
+  user_id: string | null;
+  title: string;
+  description: string | null;
+  location: string | null;
+  start_time: string;
+  end_time: string | null;
+  all_day: boolean;
+  recurrence_rule: string | null;
+  external_calendar_id: string | null;
+  external_event_id: string | null;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    name: string;
+  };
+}
+
+export default function Calendar() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Load calendar events from API
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get current month's date range
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      // Format dates as ISO 8601 datetime strings (backend expects datetime, not just date)
+      const startDate = startOfMonth.toISOString();
+      const endDate = endOfMonth.toISOString();
+
+      // Fetch events from API
+      const data = await getEvents(startDate, endDate);
+      setEvents(data as any);
+    } catch (err) {
+      console.error('Failed to load calendar events:', err);
+      setError('Failed to load calendar events. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show loading spinner
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        background: '#0a0f1e'
+      }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  // Show error message
+  if (error) {
+    return (
+      <div style={{ padding: '20px' }}>
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
+
+  // Render appropriate calendar view
+  return isMobile ? (
+    <CalendarMobile events={events} onRefresh={loadEvents} />
+  ) : (
+    <CalendarTablet events={events} onRefresh={loadEvents} />
+  );
+}
