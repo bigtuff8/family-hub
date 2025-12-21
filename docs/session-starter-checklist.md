@@ -2,9 +2,9 @@
 
 Use this document at the start of each development session to remind Claude of context, priorities, and constraints.
 
-**Last Updated:** October 12, 2025  
-**Project:** Family Hub  
-**Current Phase:** Phase 1 - MVP Calendar Development
+**Last Updated:** December 21, 2025
+**Project:** Family Hub
+**Current Phase:** Phase 2 - Advanced Features
 
 ---
 
@@ -14,7 +14,7 @@ I'm continuing work on Family Hub. Please review:
 docs/technical-debt.md - Current technical debt
 docs/session-starter-checklist.md - This checklist
 
-Current Phase: Phase 1 - Calendar MVP
+Current Phase: Phase 2 - Advanced Features
 Working on: [describe what you're building]
 
 ---
@@ -31,42 +31,48 @@ Working on: [describe what you're building]
 
 **Current Active Debt (Quick Reference):**
 
-| ID | Issue | Priority | Fix By | Blocks |
-|----|-------|----------|--------|--------|
-| TD-001 | Hard-coded tenant_id | 🔴 Critical | Phase 1.5 | Multi-tenant, Auth |
-| TD-002 | Family relationships | 🟡 Important | Phase 2 | Family features |
-| TD-003 | External contacts | 🟡 Important | Phase 2 | Guest invites |
-| TD-004 | Cross-tenant invites | 🟡 Important | Phase 2 | Multi-tenant events |
-| TD-005 | Timezone handling | 🟢 Nice-to-have | Anytime | None |
-| TD-006 | Database seeding | 🟢 Nice-to-have | Phase 1.5 | Dev efficiency |
+| ID | Issue | Priority | Status |
+|----|-------|----------|--------|
+| TD-007 | N+1 query problem | 🔴 Critical | Active |
+| TD-008 | Missing error handling | 🔴 Critical | Active |
+| TD-009 | Race condition quick add | 🟡 Important | Active |
+| TD-010 | Missing DB indexes | 🟡 Important | Active |
+| TD-011 | Decimal vs Number types | 🟡 Important | Active |
+| TD-012 | Units list mismatch | 🟡 Important | Active |
+| TD-002 | Family relationships | 🟡 Important | Planned |
+| TD-003 | External contacts | 🟡 Important | Planned |
+| TD-004 | Cross-tenant invites | 🟡 Important | Planned |
+
+**Resolved:** TD-001 (tenant_id), TD-005 (timezone), TD-006 (seeding)
 
 ---
 
 ### ✅ 2. Current Phase Goals
 📖 **Review:** Project status below
 
-**Phase 1 Goals (MVP Calendar):**
-- [x] Docker environment setup
-- [x] Database schema created
-- [x] Calendar event form (create mode)
-- [x] Event form: 30-min auto-duration
-- [x] Event form: Family member assignment
-- [x] Event form: Address search (Nominatim)
-- [x] Event form: External guests (Phase 1.5 placeholder)
-- [ ] **IN PROGRESS:** Events saving to database ← YOU ARE HERE
-- [ ] Events displaying on tablet landing page
-- [ ] Calendar views (week/month/day)
-- [ ] Event editing
-- [ ] Event deletion
-- [ ] Event duplication
+**Phase 1 - Calendar MVP:** ✅ COMPLETE
+**Phase 1.5 - Auth & Polish:** ✅ COMPLETE
+
+**Phase 2 Goals (Advanced Features):**
+- [x] Shopping list CRUD
+- [x] Item categories with icons
+- [x] Check-off/toggle items
+- [x] Quantity support
+- [x] Dashboard widget (ShoppingSnapshot)
+- [x] Full shopping page (`/shopping`)
+- [x] Per-tenant category management
+- [x] Custom emoji icons for categories
+- [x] Keyword-based auto-categorization
+- [x] Smart shopping behavior (bulk complete, 24hr auto-hide, duplicate detection)
+- [ ] Tasks/Chores feature
+- [ ] Meal planning
+- [ ] Family relationships (TD-002)
+- [ ] External contacts (TD-003)
 
 **What NOT to build yet:**
-- ❌ Authentication (Phase 1.5)
-- ❌ User registration (Phase 1.5)
-- ❌ Mobile PWA (Phase 1.5)
-- ❌ Family relationships (Phase 2)
-- ❌ External contacts (Phase 2)
-- ❌ Smart home integration (Phase 2)
+- ❌ Cross-tenant invitations (Phase 2 - later)
+- ❌ Calendar sync integrations (Phase 2 - later)
+- ❌ Commercial features (Phase 3)
 
 ---
 
@@ -290,23 +296,23 @@ Always:
 
 
 Quick Phase Reference
-Phase 1 (Current): MVP Calendar
+Phase 1: MVP Calendar ✅ COMPLETE
 
 Focus: Get calendar working perfectly
-Duration: 2-4 weeks
-Accept: Hard-coded tenant_id (will fix Phase 1.5)
+Status: Complete
 
-Phase 1.5 (Next): Auth & Polish
+Phase 1.5: Auth & Polish ✅ COMPLETE
 
 Focus: Authentication, mobile PWA
-Duration: 2-3 weeks
-Must Fix: TD-001 (hard-coded tenant_id)
+Status: Complete
+Resolved: TD-001 (hard-coded tenant_id)
 
-Phase 2 (Future): Advanced Features
+Phase 2 (Current): Advanced Features 🔄 IN PROGRESS
 
-Focus: Relationships, contacts, integrations
+Focus: Shopping, Tasks, Meal Planning, Relationships
 Duration: 4-6 weeks
-Must Fix: TD-002, TD-003, TD-004
+Completed: Shopping list + Categories + Smart behavior
+Remaining: Tasks, Meals, TD-002, TD-003, TD-004
 
 Phase 3 (Future): Commercial SaaS
 
@@ -329,9 +335,9 @@ Initialization guide: When setting up new environment
 Bluetooth tracker: When discussing Phase 2 integrations
 
 
-Document Version: 1.0
-Last Updated: October 12, 2025
-Next Review: Phase 1 completion
+Document Version: 2.0
+Last Updated: December 21, 2025
+Next Review: Phase 2 completion
 Owner: James Brown
 
 Template: New Session Start Message
@@ -343,7 +349,7 @@ Please review these documents:
 2. docs/session-starter-checklist.md
 
 Current Status:
-- Phase: Phase 1 - Calendar MVP
+- Phase: Phase 2 - Advanced Features
 - Working on: [describe current task]
 - Last completed: [what you finished last session]
 

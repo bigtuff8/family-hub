@@ -1,0 +1,35 @@
+/**
+ * CalendarTablet responsive styles
+ * Location: frontend/src/features/calendar/CalendarTablet.css
+ */
+
+/* Ensure grid children fill their cells */
+.dashboard-grid > * {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Ant Design Card overrides for grid layout */
+.dashboard-grid .ant-card {
+  height: 100%;
+}
+
+.dashboard-grid .ant-card-body {
+  height: 100%;
+}
+
+/* Mobile: Stack all tiles vertically */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
+    height: auto !important;
+    min-height: calc(100vh - 88px);
+    overflow-y: auto;
+  }
+
+  .dashboard-grid > * {
+    min-height: 300px;
+    height: auto;
+  }
+}

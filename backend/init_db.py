@@ -1,6 +1,6 @@
 import asyncio
 from shared.database import Base, engine
-from shared.models import Tenant, User, CalendarEvent, EventAttendee
+from shared.models import Tenant, User, CalendarEvent, Task, RefreshToken, ShoppingList, ShoppingItem
 
 async def init_db():
     """Initialize database tables"""

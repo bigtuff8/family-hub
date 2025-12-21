@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Card, List, Badge, Typography } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { Card, List, Badge, Typography, Button } from 'antd';
+import { ClockCircleOutlined, EnvironmentOutlined, CalendarOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import { ShoppingSnapshot } from '../shopping';
+import CalendarEventForm from './CalendarEventForm';
 
 // Enable timezone plugins
 dayjs.extend(utc);
@@ -33,9 +35,11 @@ interface CalendarEvent {
 interface CalendarMobileProps {
   events: CalendarEvent[];
   onRefresh?: () => void;
+  onNavigateToCalendar?: () => void;
 }
 
-export default function CalendarMobile({ events }: CalendarMobileProps) {
+export default function CalendarMobile({ events, onRefresh, onNavigateToCalendar }: CalendarMobileProps) {
+  const [formVisible, setFormVisible] = useState(false);
   // Parse UTC time and convert to local timezone
   const parseEventTime = (utcTimeString: string) => {
     return dayjs.utc(utcTimeString).tz('Europe/London');
@@ -168,6 +172,70 @@ export default function CalendarMobile({ events }: CalendarMobileProps) {
           />
         )}
       </Card>
+
+      {/* Shopping List */}
+      <div style={{ marginBottom: 16 }}>
+        <ShoppingSnapshot />
+      </div>
+
+      {/* Quick Actions */}
+      <Card
+        title={<Title level={4} style={{ margin: 0 }}>Quick Actions</Title>}
+        style={{ marginBottom: 16, borderRadius: 12, border: 'none' }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Button
+            size="large"
+            onClick={() => setFormVisible(true)}
+            style={{
+              height: 80,
+              background: '#f0fdfa',
+              border: 'none',
+              borderRadius: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontWeight: 600,
+            }}
+          >
+            <span style={{ fontSize: 28 }}>➕</span>
+            <span style={{ fontSize: 13 }}>Add Event</span>
+          </Button>
+
+          <Button
+            size="large"
+            onClick={onNavigateToCalendar}
+            style={{
+              height: 80,
+              background: '#f0fdfa',
+              border: 'none',
+              borderRadius: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontWeight: 600,
+            }}
+          >
+            <span style={{ fontSize: 28 }}>📅</span>
+            <span style={{ fontSize: 13 }}>Full Calendar</span>
+          </Button>
+        </div>
+      </Card>
+
+      {/* Event Form Modal */}
+      <CalendarEventForm
+        mode="create"
+        visible={formVisible}
+        onClose={() => setFormVisible(false)}
+        onSuccess={() => {
+          setFormVisible(false);
+          if (onRefresh) onRefresh();
+        }}
+      />
     </div>
   );
 }

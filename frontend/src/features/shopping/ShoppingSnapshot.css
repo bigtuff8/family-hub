@@ -1,0 +1,168 @@
+/**
+ * Shopping snapshot styles
+ * Location: frontend/src/features/shopping/ShoppingSnapshot.css
+ */
+
+.shopping-snapshot {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+  /* Fill grid cell height */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.shopping-snapshot.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.shopping-snapshot .ant-card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.snapshot-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.snapshot-header .header-icon {
+  font-size: 24px;
+  color: #f59e0b;
+}
+
+.snapshot-header .header-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a2332;
+  margin: 0;
+}
+
+.snapshot-header .header-subtitle {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.snapshot-header .view-all-btn {
+  color: #2dd4bf;
+  font-weight: 500;
+  padding: 0;
+}
+
+.quick-add {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.quick-add .ant-input-affix-wrapper {
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.quick-add .ant-input-affix-wrapper:focus,
+.quick-add .ant-input-affix-wrapper-focused {
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.1);
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fef7f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.snapshot-item:hover {
+  background: #fef3e2;
+}
+
+.snapshot-item .item-icon {
+  font-size: 14px;
+}
+
+.snapshot-item .item-name {
+  flex: 1;
+  font-size: 13px;
+  color: #2c3e50;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-item .item-name:hover {
+  color: #1890ff;
+}
+
+.snapshot-item .item-qty {
+  font-size: 10px;
+}
+
+.snapshot-item .item-edit-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 2px;
+}
+
+.snapshot-item:hover .item-edit-btn {
+  opacity: 1;
+}
+
+.snapshot-item .item-edit-btn:hover {
+  color: #1890ff;
+}
+
+.more-items {
+  text-align: center;
+  padding: 10px;
+  color: #2dd4bf;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.more-items:hover {
+  background: #f0fdfa;
+  color: #14b8a6;
+}
+
+.empty-state {
+  padding: 16px 0;
+}
+
+.empty-state .ant-empty-description {
+  color: #94a3b8;
+}

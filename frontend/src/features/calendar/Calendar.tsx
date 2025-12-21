@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Spin, Alert, Button, Space, FloatButton } from 'antd';
-import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
+import { Spin, Alert, Button, Space, FloatButton, Dropdown } from 'antd';
+import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import CalendarTablet from './CalendarTablet';
 import CalendarMobile from './CalendarMobile';
 import CalendarViews from './CalendarViews';
 import CalendarEventForm from './CalendarEventForm';
 import { getEvents } from '../../services/calendar';
 import { generateRecurringInstances } from '../../utils/recurrence';
+import { useAuth } from '../auth';
 import dayjs from 'dayjs';
 
 // Keep the CalendarEvent type definition locally since we're using snake_case from backend
@@ -32,12 +34,52 @@ export interface CalendarEvent {
 }
 
 export default function Calendar() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewType, setViewType] = useState<'dashboard' | 'calendar'>('dashboard'); // Default to dashboard view
+  const [viewType, setViewType] = useState<'dashboard' | 'calendar'>(() => {
+    const viewParam = searchParams.get('view');
+    return viewParam === 'calendar' ? 'calendar' : 'dashboard';
+  });
   const [showMobileCreateModal, setShowMobileCreateModal] = useState(false);
+  const { user, logout } = useAuth();
+
+  // Update URL when view changes
+  const handleViewTypeChange = (type: 'dashboard' | 'calendar') => {
+    setViewType(type);
+    if (type === 'calendar') {
+      setSearchParams({ view: 'calendar' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  // Get user initials for mobile header
+  const userInitials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'U';
+
+  // User dropdown menu items
+  const userMenuItems = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: user?.name || 'User',
+      disabled: true,
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Log out',
+      danger: true,
+      onClick: logout,
+    },
+  ];
 
   // Handle window resize
   useEffect(() => {
@@ -146,17 +188,37 @@ export default function Calendar() {
         }}>
           Family Hub
         </h1>
-        <Button
-          type="text"
-          onClick={() => setViewType(viewType === 'calendar' ? 'dashboard' : 'calendar')}
-          style={{
-            color: 'white',
-            fontSize: '14px',
-            fontWeight: 600,
-          }}
-        >
-          {viewType === 'calendar' ? 'Dashboard' : 'Calendar'}
-        </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Button
+            type="text"
+            onClick={() => handleViewTypeChange(viewType === 'calendar' ? 'dashboard' : 'calendar')}
+            style={{
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            {viewType === 'calendar' ? 'Dashboard' : 'Calendar'}
+          </Button>
+          <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+            <div style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: user?.color || '#2dd4bf',
+              border: '2px solid white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              color: 'white',
+            }}>
+              {userInitials}
+            </div>
+          </Dropdown>
+        </div>
       </div>
     );
   };
@@ -169,10 +231,10 @@ export default function Calendar() {
         <CalendarViews
           events={events}
           onRefresh={loadEvents}
-          onNavigateToDashboard={() => setViewType('dashboard')}
+          onNavigateToDashboard={() => handleViewTypeChange('dashboard')}
           showViewToggle={!isMobile}
           currentViewType={viewType}
-          onViewTypeChange={setViewType}
+          onViewTypeChange={handleViewTypeChange}
         />
         {isMobile && (
           <>
@@ -209,39 +271,15 @@ export default function Calendar() {
     <>
       <MobileHeader />
       {isMobile ? (
-        <>
-          <CalendarMobile events={events} onRefresh={loadEvents} />
-          <FloatButton
-            icon={<PlusOutlined />}
-            type="primary"
-            style={{
-              right: 24,
-              bottom: 24,
-              width: 56,
-              height: 56,
-              backgroundColor: '#2dd4bf',
-              borderColor: '#2dd4bf',
-            }}
-            onClick={() => setShowMobileCreateModal(true)}
-          />
-          <CalendarEventForm
-            mode="create"
-            visible={showMobileCreateModal}
-            onClose={() => setShowMobileCreateModal(false)}
-            onSuccess={() => {
-              setShowMobileCreateModal(false);
-              loadEvents();
-            }}
-          />
-        </>
+        <CalendarMobile events={events} onRefresh={loadEvents} onNavigateToCalendar={() => handleViewTypeChange('calendar')} />
       ) : (
         <CalendarTablet
           events={events}
           onRefresh={loadEvents}
-          onNavigateToCalendar={() => setViewType('calendar')}
+          onNavigateToCalendar={() => handleViewTypeChange('calendar')}
           showViewToggle={true}
           currentViewType={viewType}
-          onViewTypeChange={setViewType}
+          onViewTypeChange={handleViewTypeChange}
         />
       )}
     </>

@@ -1,0 +1,78 @@
+/**
+ * Shopping item styles
+ * Location: frontend/src/features/shopping/ShoppingItem.css
+ */
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.shopping-item:hover {
+  background-color: #fafafa;
+}
+
+.shopping-item.checked {
+  background-color: #f5f5f5;
+}
+
+.shopping-item .item-checkbox {
+  margin-right: 12px;
+}
+
+.shopping-item .item-details {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.shopping-item .item-name {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shopping-item .item-quantity {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.shopping-item .item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.shopping-item .item-added-by {
+  font-size: 12px;
+}
+
+.shopping-item .item-details {
+  cursor: pointer;
+}
+
+.shopping-item .edit-btn,
+.shopping-item .delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.shopping-item:hover .edit-btn,
+.shopping-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.shopping-item .edit-btn:hover {
+  color: #1890ff;
+}
+
+.shopping-item .delete-btn:hover {
+  color: #ff4d4f;
+}

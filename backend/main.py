@@ -14,6 +14,8 @@ from shared.database import init_db
 
 # Import routers
 from services.calendar.routes import router as calendar_router
+from services.auth.routes import router as auth_router
+from services.shopping.routes import router as shopping_router
 
 load_dotenv()
 
@@ -75,15 +77,26 @@ async def health_check():
 
 # Mount routers
 app.include_router(
+    auth_router,
+    prefix="/api/v1/auth",
+    tags=["Authentication"]
+)
+
+app.include_router(
     calendar_router,
     prefix="/api/v1/calendar",
     tags=["Calendar"]
 )
 
+app.include_router(
+    shopping_router,
+    prefix="/api/v1/shopping",
+    tags=["Shopping"]
+)
+
 # Add more routers here as you build them
 # app.include_router(tasks_router, prefix="/api/v1/tasks", tags=["Tasks"])
-# app.include_router(meals_router, prefix="/api/v1/meals", tags=["Meals"])
-# app.include_router(shopping_router, prefix="/api/v1/shopping", tags=["Shopping"])
+# app.include_router(recipes_router, prefix="/api/v1/recipes", tags=["Recipes"])
 
 if __name__ == "__main__":
     import uvicorn

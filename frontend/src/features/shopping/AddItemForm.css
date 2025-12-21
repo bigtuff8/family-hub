@@ -1,0 +1,18 @@
+/**
+ * Add item form styles
+ * Location: frontend/src/features/shopping/AddItemForm.css
+ */
+
+.add-item-form {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+}
+
+.add-item-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #999;
+}
