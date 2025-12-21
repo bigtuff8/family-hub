@@ -2,7 +2,7 @@
 
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
 **Start Date:** October 2025
-**Current Phase:** Phase 2 - Advanced Features (Shopping List Complete)
+**Current Phase:** Phase 2 - Integration & Sync
 **Last Updated:** December 21, 2025
 
 ---
@@ -12,9 +12,8 @@
 Build a comprehensive, customizable family organization system as an open-source alternative to commercial products. Start with proof-of-concept for Brown family, architect for future multi-tenant SaaS scaling.
 
 **Target Users:**
-- Phase 1: Brown family (single tenant) ✅
-- Phase 2: Beta testers (5-10 families)
-- Phase 3: Commercial SaaS (100+ families)
+- Phases 1-4: Brown family (single tenant, feature development)
+- Phase 5: Commercial SaaS (100+ families)
 
 **Key Principles:**
 - Zero development cost
@@ -25,13 +24,15 @@ Build a comprehensive, customizable family organization system as an open-source
 ---
 
 ## Phase Overview
-Phase 1          Phase 1.5        Phase 2          Phase 3
-(2-4 weeks)      (2-3 weeks)      (4-6 weeks)      (8-12 weeks)
-┌─────────┐      ┌─────────┐      ┌─────────┐      ┌─────────┐
-│ Calendar│ ───► │  Auth   │ ───► │Advanced │ ───► │  SaaS   │
-│   MVP   │      │ + PWA   │      │Features │      │  Launch │
-└─────────┘      └─────────┘      └─────────┘      └─────────┘
-    ✅               ✅           ↑ YOU ARE HERE
+
+```
+Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
+┌────────┐  ┌────────┐   ┌──────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+│Calendar│─►│  Auth  │──►│Integration│─►│  Core   │─►│ Mobile  │─►│Commercial│
+│  MVP   │  │        │   │  & Sync   │  │Features │  │ & Polish│  │  SaaS   │
+└────────┘  └────────┘   └──────────┘  └─────────┘  └─────────┘  └─────────┘
+    ✅          ✅        ↑ YOU ARE HERE
+```
 
 ---
 
@@ -135,12 +136,11 @@ Phase 1          Phase 1.5        Phase 2          Phase 3
 
 ---
 
-## Phase 2: Advanced Features 🔄 IN PROGRESS
+## Phase 2: Integration & Sync 🔄 IN PROGRESS
 
-**Goal:** Feature parity with commercial products
-**Status:** In Progress - Shopping List Complete
+**Goal:** External integrations and unified data across platforms
+**Status:** In Progress
 **Start Date:** December 2025
-**Duration:** 4-6 weeks
 **Owner:** James Brown
 
 ### Completed Features ✅
@@ -148,7 +148,7 @@ Phase 1          Phase 1.5        Phase 2          Phase 3
 **Shopping Lists:** ✅ COMPLETE
 - [x] Default shopping list per tenant
 - [x] Add/edit/delete items
-- [x] Item categories with icons (Produce, Dairy, Meat, Fish, Bakery, Frozen, Drinks, Pantry, Eggs, Household, Baby, Pet, Other)
+- [x] Item categories with icons
 - [x] Check-off items (toggle)
 - [x] Quantity support
 - [x] Shopping list full page (`/shopping` route)
@@ -159,166 +159,169 @@ Phase 1          Phase 1.5        Phase 2          Phase 3
 
 **Category Management:** ✅ COMPLETE
 - [x] Per-tenant custom categories (database-backed)
-- [x] UI to add/edit/delete shopping categories
-- [x] Custom emoji icons for categories
-- [x] Custom colors for categories
+- [x] Custom emoji icons and colors
 - [x] Keyword-based auto-categorization
-- [x] Category reordering (up/down)
-- [x] CategoryManagerDrawer component
-- [x] EmojiPicker component
-- [x] CategoryEditModal component
+- [x] Category reordering
 
 **Smart Shopping Behavior:** ✅ COMPLETE
-- [x] Complete Shop = bulk mark all as checked (not delete)
-- [x] 24-hour auto-hide for checked items (remain in DB for suggestions)
-- [x] Duplicate detection for recently completed items
-- [x] Confirmation modal: "You completed X hours ago. Add again?"
-- [x] Force-add replaces old completed item with fresh one
-- [x] Item names retained for autocomplete suggestions
+- [x] Complete Shop = bulk mark all as checked
+- [x] 24-hour auto-hide for checked items
+- [x] Duplicate detection with confirmation
 
-**Dashboard Layout:** ✅ COMPLETE
-- [x] 2x2 grid layout for tablet (1920x1080)
-  - Top Left: Today's Schedule
-  - Top Right: Coming Up
-  - Bottom Left: Shopping List
-  - Bottom Right: Quick Actions
+**Dashboard & UI:** ✅ COMPLETE
+- [x] 2x2 grid layout for tablet
 - [x] Mobile view with stacked tiles
-- [x] Separate CalendarTablet and CalendarMobile components
-- [x] Consistent card styling across all tiles
-- [x] Responsive design working
+- [x] Unified header across all pages
+- [x] Auto-deploy to Pi via GitHub Actions
 
-### In Progress 🔄
+### Remaining Phase 2 Features 📋
 
-**Polish & Bug Fixes:**
-- [ ] Address identified bugs from code review
-- [ ] Performance optimizations
-
-### Remaining Features 📋
-
-**Family Relationships:**
-- [ ] 🟡 **TD-002: Family relationships table**
-- [ ] Define parent/child/partner/sibling relationships
-- [ ] Family tree visualization
-- [ ] Emergency contacts (auto-populated)
-
-**External Contacts:**
-- [ ] 🟡 **TD-003: Contacts table**
+**2.1 Contacts + Address Book Sync:**
+- [ ] External contacts table (non-users: grandparents, friends)
 - [ ] Contact management UI
-- [ ] Birthday tracking for non-users
-- [ ] Address book
+- [ ] Birthday tracking
+- [ ] Sync from iCloud address book
+- [ ] Sync from Google Contacts
+- [ ] Sync from Yahoo address book
 
-**Cross-Tenant Features:**
-- [ ] 🟡 **TD-004: Event invitations table**
-- [ ] Invite users from other tenants
-- [ ] RSVP tracking
+**2.2 Calendar Sync:**
+- [ ] Two-way sync with Google Calendar
+- [ ] Two-way sync with iCloud Calendar
+- [ ] Two-way sync with Outlook Calendar
+- [ ] Unified view of work + personal calendars
+- [ ] Conflict detection
 
-**Tasks & Chores:**
-- [ ] Task CRUD operations
-- [ ] Assign tasks to family members
-- [ ] Due dates and reminders
-- [ ] Task completion tracking
-
-**Meal Planning:**
-- [ ] Weekly meal planner
-- [ ] Recipe storage
-- [ ] Shopping list integration
-
-**Integrations:**
-- [ ] Calendar sync (Google, iCloud, Outlook)
-
-### Technical Debt Status
-
-| ID | Issue | Priority | Status |
-|----|-------|----------|--------|
-| TD-001 | Hard-coded tenant_id | 🔴 Critical | ✅ Resolved |
-| TD-002 | Family relationships | 🟡 Important | Planned |
-| TD-003 | External contacts | 🟡 Important | Planned |
-| TD-004 | Cross-tenant invites | 🟡 Important | Planned |
-| TD-005 | Timezone handling | 🟢 Nice-to-have | ✅ Resolved (dayjs.tz) |
-| TD-006 | Database seeding | 🟢 Nice-to-have | ✅ Resolved |
+**2.3 Alexa Integration:**
+- [ ] Add items to shopping list via voice
+- [ ] Alexa skill development
+- [ ] Explore additional Alexa capabilities (calendar, reminders)
 
 ### Success Criteria
 
 Phase 2 is complete when:
-- ✅ Shopping lists operational ← DONE
-- ⬜ Tasks/chores feature working
-- ⬜ Meal planning basic functionality
-- ⬜ Family actively using all features
-- ⬜ No critical bugs
+- ⬜ Address book syncing with at least one provider
+- ⬜ Calendar syncing with at least one provider
+- ⬜ Alexa can add items to shopping list
+- ⬜ Family actively using integrations
 
 ---
 
-## Phase 3: Commercial SaaS Launch
+## Phase 3: Core Features
 
-**Goal:** Production-ready commercial offering  
-**Status:** Future Planning  
-**Start Date:** TBD (6+ months from now)  
-**Duration:** 8-12 weeks  
+**Goal:** Essential family organization features
+**Status:** Planned
 **Owner:** James Brown
 
-### Major Milestones 🎯
+### Features 📋
 
-**Infrastructure:**
+**3.1 Tasks & Chores:**
+- [ ] Task CRUD operations
+- [ ] Assign tasks to family members
+- [ ] Due dates and reminders
+- [ ] Recurring chores (e.g., "empty dishwasher every Tuesday")
+- [ ] Task completion tracking
+- [ ] Dashboard widget
+
+**3.2 Meal Planning:**
+- [ ] Weekly meal planner grid
+- [ ] Recipe storage
+- [ ] Auto-generate shopping list from meals
+- [ ] Meal history/favorites
+
+**3.3 Family Relationships:**
+- [ ] Define parent/child/partner/sibling relationships
+- [ ] Family tree visualization
+- [ ] Emergency contacts (auto-populated from relationships)
+- [ ] "Notify parents when task done" capability
+
+**3.4 Cross-Tenant Invites:**
+- [ ] Invite users from other households to events
+- [ ] RSVP tracking
+- [ ] Shared event visibility
+
+### Success Criteria
+
+Phase 3 is complete when:
+- ⬜ Tasks/chores feature working
+- ⬜ Meal planning basic functionality
+- ⬜ Family relationships defined
+- ⬜ Can invite external family to events
+
+---
+
+## Phase 4: Polish & Mobile
+
+**Goal:** Native mobile experience and notifications
+**Status:** Planned
+**Owner:** James Brown
+
+### Features 📋
+
+**4.1 Mobile Native Apps:**
+- [ ] React Native iOS app
+- [ ] React Native Android app
+- [ ] Shared codebase with web where possible
+
+**4.2 Notifications & Reminders:**
+- [ ] Push notifications for events
+- [ ] Task reminder notifications
+- [ ] Shopping list reminders (location-based?)
+
+**4.3 Analytics Dashboard:**
+- [ ] Family activity insights
+- [ ] Meal/shopping trends
+- [ ] Task completion stats
+
+### Success Criteria
+
+Phase 4 is complete when:
+- ⬜ Mobile apps in App Store / Play Store
+- ⬜ Push notifications working
+- ⬜ Analytics providing useful insights
+
+---
+
+## Phase 5: Commercial SaaS
+
+**Goal:** Production-ready commercial offering
+**Status:** Future Planning (Lowest Priority)
+**Owner:** James Brown
+
+### Features 📋
+
+**5.1 Cloud Deployment:**
 - [ ] Deploy to cloud (Fly.io, Railway, or Azure)
 - [ ] Database migration to production
 - [ ] Automated backups
-- [ ] Monitoring and logging (Application Insights)
-- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Monitoring and logging
+- [ ] CI/CD pipeline
 
-**Multi-Tenant Production:**
-- [ ] Tenant isolation verified
-- [ ] Data export (GDPR compliance)
-- [ ] Data deletion (GDPR compliance)
-- [ ] Terms of service
-- [ ] Privacy policy
-
-**Billing & Subscriptions:**
+**5.2 Stripe Billing:**
 - [ ] Stripe integration
 - [ ] Subscription tiers (Free, Pro, Family)
 - [ ] Billing portal
 - [ ] Usage limits
 
-**Marketing & Launch:**
-- [ ] Landing page
-- [ ] Documentation site
-- [ ] User onboarding flow
+**5.3 User Onboarding:**
+- [ ] Welcome flow / tutorials
 - [ ] Email marketing (welcome emails)
-- [ ] Social media presence
 
-**Support:**
-- [ ] Help center / FAQ
-- [ ] Support ticket system
-- [ ] Community forum (optional)
+**5.4 Landing Page:**
+- [ ] Marketing website
+- [ ] Documentation site
+
+**5.5 GDPR Compliance:**
+- [ ] Data export capability
+- [ ] Data deletion capability
+- [ ] Terms of service
+- [ ] Privacy policy
 
 ### Success Criteria
 
-Phase 3 is complete when:
-- ✅ 100+ paying customers
-- ✅ 99.9% uptime achieved
-- ✅ Revenue exceeds infrastructure costs
-- ✅ Positive customer reviews
-- ✅ All critical bugs resolved
-- ✅ Support system working
-
----
-
-## Future Phases (Phase 4+)
-
-**Potential Features:**
-- Advanced analytics and insights
-- AI-powered suggestions
-- Voice control (Alexa, Google Home)
-- Smart home deep integration
-- Mobile native apps (React Native)
-- Wearable integration (Apple Watch, etc.)
-- Advanced automation and workflows
-- Team/organization features (schools, clubs)
-
-**Open Source Strategy:**
-- Open-source self-hosted version
-- Dual licensing (MIT for self-host, commercial for SaaS)
-- Community contributions
-- Plugin/extension system
+Phase 5 is complete when:
+- ⬜ 100+ paying customers
+- ⬜ 99.9% uptime achieved
+- ⬜ Revenue exceeds infrastructure costs
 
 ---
 
@@ -353,31 +356,13 @@ Phase 3 is complete when:
 
 Major decisions that will affect roadmap:
 
-### After Phase 1:
-**Decision:** Continue to Phase 1.5 (authentication) or add more Phase 1 features?  
-**Criteria:** Is calendar working reliably? Is family using it daily?
-
-### After Phase 1.5:
-**Decision:** Continue to Phase 2 (advanced features) or onboard beta testers?  
-**Criteria:** Is authentication solid? Is system stable enough for others?
-
 ### After Phase 2:
-**Decision:** Launch commercial SaaS or remain open-source personal project?  
+**Decision:** Proceed to Phase 3 core features or refine integrations?
+**Criteria:** Are calendar/contacts syncing reliably? Is Alexa integration useful?
+
+### After Phase 4:
+**Decision:** Launch commercial SaaS or remain open-source personal project?
 **Criteria:** Beta tester feedback, market demand, time/resources available
-
----
-
-## Timeline Estimates
-
-**Optimistic:** 16-22 weeks (4-5 months) to SaaS launch  
-**Realistic:** 24-32 weeks (6-8 months) to SaaS launch  
-**Conservative:** 36+ weeks (9+ months) to SaaS launch
-
-**Assumptions:**
-- 10-15 hours per week development time
-- No major technical roadblocks
-- Beta testers available for Phase 2
-- Family actively using and providing feedback
 
 ---
 
@@ -385,22 +370,22 @@ Major decisions that will affect roadmap:
 
 ### Key Metrics
 
-**Phase 1:**
-- Features completed / total features
-- Days of stable operation
-- Family usage (daily active users)
-
-**Phase 1.5:**
-- Authentication success rate
-- PWA install rate
-- Technical debt items resolved
-
-**Phase 2:**
-- Beta testers onboarded
-- Feature adoption rate
-- Bug report rate
+**Phase 2 (Current):**
+- Integrations working reliably
+- Sync conflicts resolved
+- Alexa usage frequency
 
 **Phase 3:**
+- Task completion rates
+- Meal planning adoption
+- Family relationship features used
+
+**Phase 4:**
+- Mobile app downloads
+- Notification engagement
+- Analytics insights generated
+
+**Phase 5:**
 - Paying customers
 - Monthly recurring revenue (MRR)
 - Customer satisfaction (NPS)
@@ -427,7 +412,7 @@ Major decisions that will affect roadmap:
 
 ---
 
-**Document Version:** 2.0
+**Document Version:** 3.0
 **Last Updated:** December 21, 2025
-**Next Review:** Phase 2 completion
+**Next Review:** Phase 2 completion (Integration & Sync)
 **Owner:** James Brown
