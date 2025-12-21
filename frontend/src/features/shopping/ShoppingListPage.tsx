@@ -240,7 +240,7 @@ export function ShoppingListPage() {
 
   return (
     <div className="shopping-page">
-      {/* Header - matches CalendarTablet style */}
+      {/* Header - matches CalendarTablet style exactly */}
       <header className="shopping-header-full">
         <div className="header-left">
           <h1 className="header-logo" onClick={() => navigate('/calendar')} style={{ cursor: 'pointer' }}>Family Hub</h1>
@@ -248,8 +248,20 @@ export function ShoppingListPage() {
             <div className="date-main">{dayjs().format('dddd, MMMM D, YYYY')}</div>
             <div className="date-time">{dayjs().format('h:mm A')}</div>
           </div>
+          {/* Temperature tile */}
+          <div className="header-weather">
+            <span className="weather-icon">☀️</span>
+            <div className="weather-info">
+              <div className="weather-temp">18°C</div>
+              <div className="weather-desc">Sunny</div>
+            </div>
+          </div>
         </div>
 
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Calendar/Dashboard toggle */}
         <div className="header-center">
           <Space.Compact>
             <Button

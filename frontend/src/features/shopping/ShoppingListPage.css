@@ -60,6 +60,29 @@
   opacity: 0.8;
 }
 
+.shopping-header-full .header-weather {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.shopping-header-full .weather-icon {
+  font-size: 32px;
+}
+
+.shopping-header-full .weather-temp {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.shopping-header-full .weather-desc {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .shopping-header-full .header-center {
   display: flex;
   align-items: center;
