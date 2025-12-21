@@ -243,7 +243,7 @@ export function ShoppingListPage() {
       {/* Header - matches CalendarTablet style */}
       <header className="shopping-header-full">
         <div className="header-left">
-          <h1 className="header-logo">Family Hub</h1>
+          <h1 className="header-logo" onClick={() => navigate('/calendar')} style={{ cursor: 'pointer' }}>Family Hub</h1>
           <div className="header-date">
             <div className="date-main">{dayjs().format('dddd, MMMM D, YYYY')}</div>
             <div className="date-time">{dayjs().format('h:mm A')}</div>

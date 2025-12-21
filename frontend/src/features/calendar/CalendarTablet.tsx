@@ -153,15 +153,19 @@ export default function CalendarTablet({
         minHeight: '56px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
-          <h1 style={{
-            fontSize: 28,
-            fontWeight: 700,
-            margin: 0,
-            background: 'linear-gradient(135deg, #2dd4bf, #fb7185)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
+          <h1
+            onClick={() => onViewTypeChange?.('dashboard')}
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              margin: 0,
+              background: 'linear-gradient(135deg, #2dd4bf, #fb7185)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              cursor: 'pointer'
+            }}
+          >
             Family Hub
           </h1>
           <div style={{ fontSize: 14, opacity: 0.9 }}>
@@ -170,6 +174,21 @@ export default function CalendarTablet({
             </div>
             <div style={{ fontSize: 12, opacity: 0.8 }}>
               {dayjs().format('h:mm A')}
+            </div>
+          </div>
+          {/* Temperature - positioned next to date */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '8px 16px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: 12
+          }}>
+            <span style={{ fontSize: 32 }}>☀️</span>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 600 }}>18°C</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>Sunny</div>
             </div>
           </div>
         </div>
@@ -200,21 +219,6 @@ export default function CalendarTablet({
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '8px 16px',
-            background: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: 12
-          }}>
-            <span style={{ fontSize: 32 }}>☀️</span>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 600 }}>18°C</div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>Sunny</div>
-            </div>
-          </div>
-
           <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
             <div style={{
               width: 48,
