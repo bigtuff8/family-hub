@@ -71,24 +71,28 @@ export function ShoppingListPage() {
   const handleAddItem = async (name: string, quantity?: number, unit?: string, forceAdd = false) => {
     if (!list) return;
 
-    const response = await shoppingApi.addItem(list.id, { name, quantity, unit, force_add: forceAdd });
+    try {
+      const response = await shoppingApi.addItem(list.id, { name, quantity, unit, force_add: forceAdd });
 
-    // Handle duplicate detection
-    if (response.duplicate_detected && response.recently_completed) {
-      setPendingItem({ name, quantity, unit });
-      setDuplicateInfo(response.recently_completed);
-      return;
-    }
-
-    if (response.item) {
-      if (response.merged) {
-        message.info(`Updated ${name} quantity`);
-      } else {
-        message.success(`Added ${name}`);
+      // Handle duplicate detection
+      if (response.duplicate_detected && response.recently_completed) {
+        setPendingItem({ name, quantity, unit });
+        setDuplicateInfo(response.recently_completed);
+        return;
       }
-    }
 
-    fetchList();
+      if (response.item) {
+        if (response.merged) {
+          message.info(`Updated ${name} quantity`);
+        } else {
+          message.success(`Added ${name}`);
+        }
+      }
+
+      fetchList();
+    } catch (err) {
+      message.error('Failed to add item');
+    }
   };
 
   const handleConfirmDuplicate = async () => {

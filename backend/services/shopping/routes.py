@@ -67,14 +67,17 @@ async def get_shopping_list(
 
     items = await crud.get_items_by_list(db, list_id, tenant_id)
 
+    # Batch fetch all users (fixes N+1 query problem)
+    user_ids = list(set(item.added_by for item in items if item.added_by))
+    users_map = await crud.get_users_by_ids(db, user_ids)
+
     # Build response with user info
     item_responses = []
     for item in items:
         added_by = None
-        if item.added_by:
-            user = await crud.get_user_by_id(db, item.added_by)
-            if user:
-                added_by = {"id": user.id, "name": user.name}
+        if item.added_by and item.added_by in users_map:
+            user = users_map[item.added_by]
+            added_by = {"id": user.id, "name": user.name}
 
         item_responses.append(schemas.ShoppingItemResponse(
             id=item.id,
@@ -115,14 +118,17 @@ async def get_default_list(
 
     items = await crud.get_items_by_list(db, shopping_list.id, current_user.tenant_id)
 
+    # Batch fetch all users (fixes N+1 query problem)
+    user_ids = list(set(item.added_by for item in items if item.added_by))
+    users_map = await crud.get_users_by_ids(db, user_ids)
+
     # Build response with user info
     item_responses = []
     for item in items:
         added_by = None
-        if item.added_by:
-            user = await crud.get_user_by_id(db, item.added_by)
-            if user:
-                added_by = {"id": user.id, "name": user.name}
+        if item.added_by and item.added_by in users_map:
+            user = users_map[item.added_by]
+            added_by = {"id": user.id, "name": user.name}
 
         item_responses.append(schemas.ShoppingItemResponse(
             id=item.id,

@@ -59,38 +59,26 @@ This document tracks known technical debt, shortcuts, and future refactoring nee
 
 ## Active Technical Debt
 
-### 🔴 TD-007: N+1 Query Problem in Shopping List
-**Status:** Active
-**Priority:** Critical (Performance)
-**Created:** December 21, 2025
-**File:** `backend/services/shopping/routes.py` (Lines 54-105)
+### ✅ TD-007: N+1 Query Problem in Shopping List
+**Status:** ✅ RESOLVED (December 2025)
+**Resolution:** Implemented batch user fetching with `get_users_by_ids()`
+**Resolved By:** Tech debt cleanup session
 
-**Issue:**
-For each item in the shopping list, `get_user_by_id` is called separately. With 100 items = 100+ database queries.
-
-**Impact:**
-Severe performance degradation with large shopping lists.
-
-**Solution:**
-Eager load user data with a JOIN query or batch fetch users.
-
-**Estimated Effort:** 2-3 hours
+**Solution Implemented:**
+- Added `get_users_by_ids()` function in `crud.py` for batch fetching
+- Updated `get_shopping_list` and `get_default_list` endpoints to use batch fetch
+- Now fetches all users in single query instead of N queries
 
 ---
 
-### 🔴 TD-008: Missing Error Handling in Add Item
-**Status:** Active
-**Priority:** Critical (UX)
-**Created:** December 21, 2025
-**File:** `frontend/src/features/shopping/ShoppingListPage.tsx` (Lines 71-92)
+### ✅ TD-008: Missing Error Handling in Add Item
+**Status:** ✅ RESOLVED (December 2025)
+**Resolution:** Added try-catch with error message
+**Resolved By:** Tech debt cleanup session
 
-**Issue:**
-The `handleAddItem` function doesn't have a try-catch block. Network errors cause silent failures.
-
-**Solution:**
-Wrap in try-catch and show error message to user.
-
-**Estimated Effort:** 30 minutes
+**Solution Implemented:**
+- Wrapped `handleAddItem` in try-catch block
+- Shows "Failed to add item" error message on failure
 
 ---
 
@@ -375,8 +363,8 @@ Originally used manual 1-hour subtraction for BST. Now properly resolved with da
 | TD-001 | Hard-coded tenant_id | 🔴 Critical | ✅ Resolved | - |
 | TD-005 | Timezone handling | 🟢 Nice-to-have | ✅ Resolved | - |
 | TD-006 | Database seeding | 🟢 Nice-to-have | ✅ Resolved | - |
-| TD-007 | N+1 query problem | 🔴 Critical | Active | 2-3 hrs |
-| TD-008 | Missing error handling | 🔴 Critical | Active | 30 min |
+| TD-007 | N+1 query problem | 🔴 Critical | ✅ Resolved | - |
+| TD-008 | Missing error handling | 🔴 Critical | ✅ Resolved | - |
 | TD-009 | Race condition quick add | 🟡 Important | Active | 1 hr |
 | TD-010 | Missing DB indexes | 🟡 Important | Active | 1 hr |
 | TD-011 | Decimal vs Number types | 🟡 Important | Active | 2 hrs |
@@ -390,7 +378,7 @@ Originally used manual 1-hour subtraction for BST. Now properly resolved with da
 | TD-003 | External contacts | 🟡 Important | Planned | 5-7 days |
 | TD-004 | Cross-tenant invites | 🟡 Important | Planned | 1 week |
 
-**Total Active Items:** 14 (2 Critical, 5 Important, 7 Nice-to-have)
+**Total Active Items:** 12 (0 Critical, 5 Important, 7 Nice-to-have)
 
 ---
 

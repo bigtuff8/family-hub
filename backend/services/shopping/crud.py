@@ -373,6 +373,17 @@ async def get_user_by_id(db: AsyncSession, user_id: UUID) -> Optional[User]:
     return result.scalar_one_or_none()
 
 
+async def get_users_by_ids(db: AsyncSession, user_ids: list[UUID]) -> dict[UUID, User]:
+    """Batch fetch users by IDs - returns dict mapping user_id to User."""
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(User).where(User.id.in_(user_ids))
+    )
+    users = result.scalars().all()
+    return {user.id: user for user in users}
+
+
 async def get_unique_item_names(db: AsyncSession, tenant_id: UUID) -> list[str]:
     """Get unique item names for autocomplete."""
     result = await db.execute(
