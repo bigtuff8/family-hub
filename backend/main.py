@@ -16,6 +16,7 @@ from shared.database import init_db
 from services.calendar.routes import router as calendar_router
 from services.auth.routes import router as auth_router
 from services.shopping.routes import router as shopping_router
+from services.contacts.routes import router as contacts_router
 
 load_dotenv()
 
@@ -92,6 +93,12 @@ app.include_router(
     shopping_router,
     prefix="/api/v1/shopping",
     tags=["Shopping"]
+)
+
+app.include_router(
+    contacts_router,
+    prefix="/api/v1/contacts",
+    tags=["Contacts"]
 )
 
 # Add more routers here as you build them

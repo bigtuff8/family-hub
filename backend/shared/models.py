@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, ForeignKey, Date, Time, Index, DECIMAL
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from shared.database import Base
 import uuid
 
@@ -159,4 +160,105 @@ class ShoppingItem(Base):
     __table_args__ = (
         Index('idx_shopping_items_tenant', 'tenant_id'),
         Index('idx_shopping_items_list', 'list_id', 'checked', 'category'),
+    )
+
+
+class Contact(Base):
+    """External contact (non-user) - grandparents, friends, extended family"""
+    __tablename__ = "contacts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+
+    # Core fields
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100))
+    display_name = Column(String(200))  # Computed or custom
+    nickname = Column(String(100))
+
+    # Primary contact info (convenience fields)
+    primary_email = Column(String(255))
+    primary_phone = Column(String(50))
+
+    # Important dates
+    birthday = Column(Date)
+    anniversary = Column(Date)
+
+    # Address
+    address_line1 = Column(String(255))
+    address_line2 = Column(String(255))
+    city = Column(String(100))
+    county = Column(String(100))
+    postcode = Column(String(20))
+    country = Column(String(100), default='United Kingdom')
+
+    # Organization
+    company = Column(String(200))
+    job_title = Column(String(200))
+
+    # Notes and metadata
+    notes = Column(Text)
+    photo_url = Column(String(500))
+
+    # Sync tracking (for future iCloud/Google sync)
+    external_source = Column(String(50))  # 'icloud', 'google', 'manual'
+    external_id = Column(String(255))  # Provider's unique ID
+    last_synced_at = Column(DateTime(timezone=True))
+    sync_etag = Column(String(255))  # For change detection
+
+    # Status
+    is_favorite = Column(Boolean, default=False)
+    is_archived = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    phones = relationship("ContactPhone", back_populates="contact", cascade="all, delete-orphan")
+    emails = relationship("ContactEmail", back_populates="contact", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index('idx_contacts_tenant', 'tenant_id'),
+        Index('idx_contacts_name', 'tenant_id', 'last_name', 'first_name'),
+        Index('idx_contacts_birthday', 'tenant_id', 'birthday'),
+        Index('idx_contacts_external', 'external_source', 'external_id'),
+    )
+
+
+class ContactPhone(Base):
+    """Phone number for a contact (supports multiple phones per contact)"""
+    __tablename__ = "contact_phones"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contact_id = Column(UUID(as_uuid=True), ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
+    phone_type = Column(String(50), default='mobile')  # mobile, home, work, other
+    phone_number = Column(String(50), nullable=False)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship
+    contact = relationship("Contact", back_populates="phones")
+
+    __table_args__ = (
+        Index('idx_contact_phones_contact', 'contact_id'),
+    )
+
+
+class ContactEmail(Base):
+    """Email address for a contact (supports multiple emails per contact)"""
+    __tablename__ = "contact_emails"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    contact_id = Column(UUID(as_uuid=True), ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
+    email_type = Column(String(50), default='personal')  # personal, work, other
+    email_address = Column(String(255), nullable=False)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship
+    contact = relationship("Contact", back_populates="emails")
+
+    __table_args__ = (
+        Index('idx_contact_emails_contact', 'contact_id'),
     )
