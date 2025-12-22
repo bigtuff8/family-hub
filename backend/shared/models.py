@@ -183,6 +183,7 @@ class Contact(Base):
     # Important dates
     birthday = Column(Date)
     anniversary = Column(Date)
+    anniversary_type = Column(String(50))  # wedding, friendship, first_met, engagement, other
 
     # Address
     address_line1 = Column(String(255))

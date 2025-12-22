@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Spin, Alert, Button, Space, FloatButton, Dropdown } from 'antd';
-import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import CalendarTablet from './CalendarTablet';
 import CalendarMobile from './CalendarMobile';
 import CalendarViews from './CalendarViews';
@@ -35,6 +35,7 @@ export interface CalendarEvent {
 
 export default function Calendar() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,21 @@ export default function Calendar() {
       icon: <UserOutlined />,
       label: user?.name || 'User',
       disabled: true,
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'shopping',
+      icon: <ShoppingCartOutlined />,
+      label: 'Shopping List',
+      onClick: () => navigate('/shopping'),
+    },
+    {
+      key: 'contacts',
+      icon: <TeamOutlined />,
+      label: 'Contacts',
+      onClick: () => navigate('/contacts'),
     },
     {
       type: 'divider' as const,

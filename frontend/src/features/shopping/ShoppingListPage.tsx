@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Typography, Button, Space, Spin, Empty, message, Badge, Dropdown, Modal } from 'antd';
 import {
   CheckCircleOutlined,
+  TeamOutlined,
   ReloadOutlined,
   ShoppingCartOutlined,
   UserOutlined,
@@ -212,6 +213,15 @@ export function ShoppingListPage() {
       disabled: true,
     },
     { type: 'divider' as const },
+    {
+      key: 'contacts',
+      icon: <TeamOutlined />,
+      label: 'Contacts',
+      onClick: () => navigate('/contacts'),
+    },
+    {
+      type: 'divider' as const,
+    },
     {
       key: 'logout',
       icon: <LogoutOutlined />,

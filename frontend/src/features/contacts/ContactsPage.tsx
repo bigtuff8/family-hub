@@ -22,6 +22,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   AppstoreOutlined,
+  CalendarOutlined,
   PlusOutlined,
   SearchOutlined,
   StarFilled,
@@ -29,6 +30,8 @@ import {
   PhoneOutlined,
   MailOutlined,
   GiftOutlined,
+  TeamOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -38,7 +41,7 @@ import { ContactDrawer } from './ContactDrawer';
 import type { ContactSummary, Contact, ContactListResponse } from '../../types/contacts';
 import './ContactsPage.css';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
 
 export function ContactsPage() {
@@ -134,16 +137,24 @@ export function ContactsPage() {
   // User menu items
   const userMenuItems = [
     {
-      key: 'dashboard',
-      icon: <AppstoreOutlined />,
-      label: 'Dashboard',
-      onClick: () => navigate('/'),
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: user?.name || 'User',
+      disabled: true,
+    },
+    { type: 'divider' as const },
+    {
+      key: 'contacts',
+      icon: <TeamOutlined />,
+      label: 'Contacts',
+      onClick: () => navigate('/contacts'),
     },
     { type: 'divider' as const },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Logout',
+      label: 'Log out',
+      danger: true,
       onClick: logout,
     },
   ];
@@ -154,6 +165,11 @@ export function ContactsPage() {
     const last = contact.last_name?.[0] || '';
     return (first + last).toUpperCase() || '?';
   };
+
+  // Get user initials
+  const userInitials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'U';
 
   // Format birthday
   const formatBirthday = (birthday: string | null): string | null => {
@@ -172,40 +188,71 @@ export function ContactsPage() {
 
   return (
     <div className="contacts-page">
-      {/* Header */}
-      <header className="contacts-header">
+      {/* Header - matches CalendarTablet/ShoppingListPage style */}
+      <header className="contacts-header-full">
         <div className="header-left">
-          <Title
-            level={4}
-            className="logo-title"
-            onClick={() => navigate('/')}
-            style={{ cursor: 'pointer', margin: 0 }}
-          >
-            Family Hub
-          </Title>
+          <h1 className="header-logo" onClick={() => navigate('/calendar')} style={{ cursor: 'pointer' }}>Family Hub</h1>
+          <div className="header-date">
+            <div className="date-main">{dayjs().format('dddd, MMMM D, YYYY')}</div>
+            <div className="date-time">{dayjs().format('h:mm A')}</div>
+          </div>
+          {/* Temperature tile */}
+          <div className="header-weather">
+            <span className="weather-icon">☀️</span>
+            <div className="weather-info">
+              <div className="weather-temp">18°C</div>
+              <div className="weather-desc">Sunny</div>
+            </div>
+          </div>
         </div>
 
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Calendar/Dashboard toggle */}
         <div className="header-center">
-          <Title level={3} style={{ margin: 0, color: 'white' }}>
-            Contacts
-          </Title>
+          <Space.Compact>
+            <Button
+              type="default"
+              icon={<CalendarOutlined />}
+              onClick={() => navigate('/calendar?view=calendar')}
+            >
+              Calendar
+            </Button>
+            <Button
+              type="default"
+              icon={<AppstoreOutlined />}
+              onClick={() => navigate('/calendar')}
+            >
+              Dashboard
+            </Button>
+          </Space.Compact>
         </div>
 
         <div className="header-right">
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Button
-              type="text"
-              className="user-button"
-              icon={<UserOutlined />}
+          <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+            <div
+              className="user-avatar"
+              style={{ background: user?.color || '#2dd4bf' }}
             >
-              {user?.name}
-            </Button>
+              {userInitials}
+            </div>
           </Dropdown>
         </div>
       </header>
 
-      {/* Toolbar */}
-      <div className="contacts-toolbar">
+      {/* Sub-header with contacts info */}
+      <div className="contacts-subheader">
+        <div className="subheader-left">
+          <TeamOutlined className="subheader-icon" />
+          <div>
+            <Title level={4} className="subheader-title">Contacts</Title>
+            <Text type="secondary">
+              {total} contact{total !== 1 ? 's' : ''}
+              {favoritesOnly && ' (favorites)'}
+            </Text>
+          </div>
+        </div>
         <Space>
           <Search
             placeholder="Search contacts..."
@@ -224,14 +271,14 @@ export function ContactsPage() {
           >
             Favorites
           </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleCreateContact}
+          >
+            Add Contact
+          </Button>
         </Space>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleCreateContact}
-        >
-          Add Contact
-        </Button>
       </div>
 
       {/* Content */}

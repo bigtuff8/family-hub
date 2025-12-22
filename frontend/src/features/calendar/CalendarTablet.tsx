@@ -1,5 +1,5 @@
 import { Card, Avatar, Button, Space, Dropdown } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -74,6 +74,21 @@ export default function CalendarTablet({
       icon: <UserOutlined />,
       label: user?.name || 'User',
       disabled: true,
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'shopping',
+      icon: <ShoppingCartOutlined />,
+      label: 'Shopping List',
+      onClick: () => navigate('/shopping'),
+    },
+    {
+      key: 'contacts',
+      icon: <TeamOutlined />,
+      label: 'Contacts',
+      onClick: () => navigate('/contacts'),
     },
     {
       type: 'divider' as const,
@@ -520,6 +535,37 @@ export default function CalendarTablet({
             >
               <span style={{ fontSize: 28 }}>📅</span>
               <span style={{ fontSize: 13 }}>Full Calendar</span>
+            </Button>
+
+            <Button
+              size="large"
+              onClick={() => navigate('/contacts')}
+              style={{
+                height: 80,
+                background: '#f0fdfa',
+                border: 'none',
+                borderRadius: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                fontWeight: 600,
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#2dd4bf';
+                e.currentTarget.style.color = 'white';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#f0fdfa';
+                e.currentTarget.style.color = 'inherit';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <span style={{ fontSize: 28 }}>👥</span>
+              <span style={{ fontSize: 13 }}>Contacts</span>
             </Button>
           </div>
         </Card>

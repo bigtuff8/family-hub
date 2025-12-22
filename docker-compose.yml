@@ -46,6 +46,7 @@ services:
     container_name: familyhub-frontend
     environment:
       VITE_API_URL: http://localhost:8000
+      VITE_GETADDRESS_API_KEY: WdZk5HROZ06OnCmwB3BJCg49348
     volumes:
       - ./frontend:/app
       - /app/node_modules

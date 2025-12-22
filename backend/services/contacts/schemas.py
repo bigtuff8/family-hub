@@ -71,6 +71,7 @@ class ContactCreate(BaseModel):
     # Important dates
     birthday: Optional[date] = None
     anniversary: Optional[date] = None
+    anniversary_type: Optional[str] = Field(None, pattern='^(wedding|engagement|friendship|first_met|dating|other)$')
 
     # Address
     address_line1: Optional[str] = Field(None, max_length=255)
@@ -108,6 +109,7 @@ class ContactUpdate(BaseModel):
 
     birthday: Optional[date] = None
     anniversary: Optional[date] = None
+    anniversary_type: Optional[str] = Field(None, pattern='^(wedding|engagement|friendship|first_met|dating|other)$')
 
     address_line1: Optional[str] = Field(None, max_length=255)
     address_line2: Optional[str] = Field(None, max_length=255)
@@ -159,8 +161,9 @@ class ContactResponse(BaseModel):
     primary_phone: Optional[str]
 
     # Important dates
-    birthday: Optional[date]
-    anniversary: Optional[date]
+    birthday: Optional[date] = None
+    anniversary: Optional[date] = None
+    anniversary_type: Optional[str] = None
 
     # Address
     address_line1: Optional[str]

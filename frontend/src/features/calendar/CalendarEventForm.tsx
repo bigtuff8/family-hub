@@ -16,12 +16,14 @@ import {
   AutoComplete,
   Tag,
 } from 'antd';
-import { DeleteOutlined, SaveOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SaveOutlined, CloseOutlined, EnvironmentOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate } from '../../types/calendar';
 import { createEvent, updateEvent, deleteEvent } from '../../services/calendar';
+import { contactsApi } from '../../services/contacts';
+import type { ContactSummary } from '../../types/contacts';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -118,6 +120,9 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [addressLoading, setAddressLoading] = useState(false);
   const [externalGuests, setExternalGuests] = useState<string[]>([]);
   const [guestInputValue, setGuestInputValue] = useState('');
+  const [contactSearchResults, setContactSearchResults] = useState<ContactSummary[]>([]);
+  const [contactSearchLoading, setContactSearchLoading] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<ContactSummary[]>([]);
   const [recurrenceType, setRecurrenceType] = useState<string>('none');
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceEndType, setRecurrenceEndType] = useState<string>('never');
@@ -147,33 +152,44 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
     }
   };
 
-  // Search addresses using Nominatim (OpenStreetMap)
-  const searchAddress = async (query: string) => {
-    if (!query || query.length < 3) {
-      setAddressOptions([]);
-      return;
-    }
+  // Generate fuzzy search variations for compound words
+  const generateSearchVariations = (query: string): string[] => {
+    const variations = [query];
+    const withSpaces = query.replace(/([a-z])([A-Z])/g, '$1 $2');
+    if (withSpaces !== query) variations.push(withSpaces);
+    query.split(' ').forEach(word => {
+      if (word.length >= 8) {
+        const mid = Math.floor(word.length / 2);
+        for (let i = mid - 2; i <= mid + 2; i++) {
+          if (i > 2 && i < word.length - 2) {
+            variations.push(query.replace(word, word.slice(0, i) + ' ' + word.slice(i)));
+          }
+        }
+      }
+    });
+    return [...new Set(variations)];
+  };
 
+  // Search addresses using getAddress.io autocomplete with fuzzy matching
+  const searchAddress = async (query: string) => {
+    if (!query || query.length < 3) { setAddressOptions([]); return; }
+    const apiKey = import.meta.env.VITE_GETADDRESS_API_KEY;
+    if (!apiKey) { setAddressOptions([]); return; }
     setAddressLoading(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `format=json&` +
-        `q=${encodeURIComponent(query)}&` +
-        `countrycodes=gb&` + // UK only
-        `limit=5&` +
-        `addressdetails=1`
-      );
-      
-      const data = await response.json();
-      
-      const options: AddressOption[] = data.map((item: any) => ({
-        value: item.display_name,
-        label: item.display_name,
-        displayName: item.display_name,
-      }));
-      
-      setAddressOptions(options);
+      const variations = generateSearchVariations(query);
+      let allSuggestions: any[] = [];
+      for (const sq of variations) {
+        const resp = await fetch(`https://api.getAddress.io/autocomplete/${encodeURIComponent(sq)}?api-key=${apiKey}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.suggestions) allSuggestions = [...allSuggestions, ...data.suggestions];
+        }
+        if (allSuggestions.length > 0) break;
+      }
+      const seen = new Set<string>();
+      const unique = allSuggestions.filter(s => { if (seen.has(s.address)) return false; seen.add(s.address); return true; });
+      setAddressOptions(unique.slice(0, 6).map((s: any) => ({ value: s.address, label: s.address, displayName: s.address })));
     } catch (error) {
       console.error('Address search error:', error);
       setAddressOptions([]);
@@ -218,6 +234,54 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
     setExternalGuests(externalGuests.filter(g => g !== email));
   };
 
+  // Search contacts
+  const searchContacts = async (query: string) => {
+    if (!query || query.length < 2) {
+      setContactSearchResults([]);
+      return;
+    }
+
+    setContactSearchLoading(true);
+    try {
+      const response = await contactsApi.getContacts({ search: query, page_size: 10 });
+      // Filter out already selected contacts
+      const selectedIds = selectedContacts.map(c => c.id);
+      setContactSearchResults(response.contacts.filter(c => !selectedIds.includes(c.id)));
+    } catch (error) {
+      console.error('Contact search error:', error);
+      setContactSearchResults([]);
+    } finally {
+      setContactSearchLoading(false);
+    }
+  };
+
+  const debouncedContactSearch = debounce(searchContacts, 300);
+
+  const handleContactSearch = (value: string) => {
+    debouncedContactSearch(value);
+  };
+
+  const handleSelectContact = (contactId: string) => {
+    const contact = contactSearchResults.find(c => c.id === contactId);
+    if (contact) {
+      setSelectedContacts([...selectedContacts, contact]);
+      // Add email to external guests if available
+      if (contact.primary_email && !externalGuests.includes(contact.primary_email)) {
+        setExternalGuests([...externalGuests, contact.primary_email]);
+      }
+      setContactSearchResults([]);
+    }
+  };
+
+  const handleRemoveContact = (contactId: string) => {
+    const contact = selectedContacts.find(c => c.id === contactId);
+    setSelectedContacts(selectedContacts.filter(c => c.id !== contactId));
+    // Also remove their email from external guests
+    if (contact?.primary_email) {
+      setExternalGuests(externalGuests.filter(e => e !== contact.primary_email));
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && event) {
@@ -230,6 +294,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         
         // TODO: Load attendees and external guests from event data when backend supports it
         setExternalGuests([]);
+        setSelectedContacts([]);
 
         form.setFieldsValue({
           title: event.title,
@@ -269,6 +334,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         setAllDay(false);
         setSelectedLead(undefined);
         setExternalGuests([]);
+        setSelectedContacts([]);
         setRecurrenceType('none');
         setRecurrenceEndType('never');
         setRecurrenceEndDate(null);

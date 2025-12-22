@@ -63,6 +63,7 @@ export interface Contact {
   // Important dates
   birthday: string | null; // ISO date string
   anniversary: string | null; // ISO date string
+  anniversary_type: string | null; // wedding, engagement, friendship, first_met, dating, other
 
   // Address
   address_line1: string | null;
@@ -106,6 +107,7 @@ export interface ContactCreate {
   primary_phone?: string | null;
   birthday?: string | null;
   anniversary?: string | null;
+  anniversary_type?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;
@@ -130,6 +132,7 @@ export interface ContactUpdate {
   primary_phone?: string | null;
   birthday?: string | null;
   anniversary?: string | null;
+  anniversary_type?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;

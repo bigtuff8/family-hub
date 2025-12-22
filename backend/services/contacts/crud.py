@@ -132,6 +132,7 @@ async def create_contact(
         primary_phone=data.primary_phone,
         birthday=data.birthday,
         anniversary=data.anniversary,
+        anniversary_type=data.anniversary_type,
         address_line1=data.address_line1,
         address_line2=data.address_line2,
         city=data.city,
