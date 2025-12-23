@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, ForeignKey, Date, Time, Index, DECIMAL
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, ForeignKey, Date, Time, Index, DECIMAL, CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -76,6 +76,45 @@ class CalendarEvent(Base):
     color = Column(String(7))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    attendees = relationship("EventAttendee", back_populates="event", cascade="all, delete-orphan")
+
+
+class EventAttendee(Base):
+    """Links contacts or email-only guests to calendar events"""
+    __tablename__ = "event_attendees"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id = Column(UUID(as_uuid=True), ForeignKey('calendar_events.id', ondelete='CASCADE'), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+
+    # Either contact_id OR email (not both required)
+    contact_id = Column(UUID(as_uuid=True), ForeignKey('contacts.id', ondelete='CASCADE'), nullable=True)
+    email = Column(String(255), nullable=True)  # For non-contact guests
+
+    # Display name (auto-filled from contact or manual)
+    display_name = Column(String(200))
+
+    # RSVP tracking
+    rsvp_status = Column(String(20), default='pending')  # pending, accepted, declined, tentative
+    responded_at = Column(DateTime(timezone=True))
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    event = relationship("CalendarEvent", back_populates="attendees")
+    contact = relationship("Contact")
+
+    __table_args__ = (
+        Index('idx_event_attendees_event', 'event_id'),
+        Index('idx_event_attendees_tenant', 'tenant_id'),
+        Index('idx_event_attendees_contact', 'contact_id'),
+        UniqueConstraint('event_id', 'contact_id', name='uq_event_attendee_contact'),
+        UniqueConstraint('event_id', 'email', name='uq_event_attendee_email'),
+        CheckConstraint('contact_id IS NOT NULL OR email IS NOT NULL', name='ck_attendee_contact_or_email'),
+    )
+
 
 class Task(Base):
     """Task/chore"""

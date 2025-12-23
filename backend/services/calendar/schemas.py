@@ -3,10 +3,67 @@ Calendar Service - Pydantic Schemas
 Location: backend/services/calendar/schemas.py
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, date, time
-from typing import Optional
+from typing import Optional, List, Literal
 from uuid import UUID
+
+# RSVP Status type
+RSVPStatus = Literal['pending', 'accepted', 'declined', 'tentative']
+
+
+# =============================================================================
+# Event Attendee Schemas
+# =============================================================================
+
+class EventAttendeeCreate(BaseModel):
+    """Schema for creating an event attendee"""
+    contact_id: Optional[UUID] = None
+    email: Optional[str] = Field(None, max_length=255)
+    display_name: Optional[str] = Field(None, max_length=200)
+
+    @model_validator(mode='after')
+    def validate_contact_or_email(self):
+        """Either contact_id or email must be provided"""
+        if not self.contact_id and not self.email:
+            raise ValueError('Either contact_id or email must be provided')
+        return self
+
+
+class ContactSummaryForAttendee(BaseModel):
+    """Lightweight contact info for attendee display"""
+    id: UUID
+    first_name: str
+    last_name: Optional[str]
+    display_name: Optional[str]
+    primary_email: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
+class EventAttendeeResponse(BaseModel):
+    """Schema for event attendee response"""
+    id: UUID
+    contact_id: Optional[UUID]
+    email: Optional[str]
+    display_name: Optional[str]
+    rsvp_status: RSVPStatus
+    responded_at: Optional[datetime]
+    contact: Optional[ContactSummaryForAttendee] = None
+
+    class Config:
+        from_attributes = True
+
+
+class RSVPUpdate(BaseModel):
+    """Schema for updating RSVP status"""
+    rsvp_status: RSVPStatus
+
+
+# =============================================================================
+# Calendar Event Schemas
+# =============================================================================
 
 # Base schemas
 class CalendarEventBase(BaseModel):
@@ -34,6 +91,7 @@ class CalendarEventCreate(CalendarEventBase):
     user_id: Optional[UUID] = None  # Assign to specific user
     external_calendar_id: Optional[str] = None
     external_event_id: Optional[str] = None
+    attendees: List[EventAttendeeCreate] = Field(default_factory=list)
 
 class CalendarEventUpdate(BaseModel):
     """Schema for updating a calendar event (all fields optional)"""
@@ -46,6 +104,7 @@ class CalendarEventUpdate(BaseModel):
     recurrence_rule: Optional[str] = None
     color: Optional[str] = Field(None, pattern=r'^#[0-9A-Fa-f]{6}$')
     user_id: Optional[UUID] = None
+    attendees: Optional[List[EventAttendeeCreate]] = None  # If provided, replaces all attendees
 
 # Response schemas
 class CalendarEventResponse(CalendarEventBase):
@@ -57,6 +116,7 @@ class CalendarEventResponse(CalendarEventBase):
     external_event_id: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime]
+    attendees: List[EventAttendeeResponse] = Field(default_factory=list)
     
     class Config:
         from_attributes = True  # Pydantic v2 (was orm_mode in v1)

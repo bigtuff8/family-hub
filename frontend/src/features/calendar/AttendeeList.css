@@ -1,0 +1,103 @@
+.attendee-list-container {
+  margin-top: 16px;
+}
+
+.attendee-list-header {
+  margin-bottom: 12px;
+}
+
+.attendee-list-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.attendee-summary {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+}
+
+.attendee-list {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.attendee-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 8px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+.attendee-item:last-child {
+  border-bottom: none !important;
+}
+
+.attendee-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.attendee-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e6f7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.attendee-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.attendee-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #262626;
+}
+
+.attendee-email {
+  font-size: 12px;
+  color: #8c8c8c;
+}
+
+.attendee-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dark mode support for EventDetailsModal */
+.event-details-modal .attendee-list-container {
+  margin-top: 16px;
+}
+
+.event-details-modal .attendee-list-header h3 {
+  color: #262626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .attendee-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .attendee-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

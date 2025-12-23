@@ -125,20 +125,21 @@ export default function CalendarTablet({
     // Convert snake_case to camelCase for the form
     setSelectedEvent({
       id: event.id,
-      tenantId: event.tenant_id,
-      userId: event.user_id,
+      tenant_id: event.tenant_id,
+      user_id: event.user_id,
       title: event.title,
       description: event.description,
       location: event.location,
-      startTime: event.start_time,
-      endTime: event.end_time,
-      allDay: event.all_day,
-      recurrenceRule: event.recurrence_rule,
-      externalCalendarId: event.external_calendar_id,
-      externalEventId: event.external_event_id,
+      start_time: event.start_time,
+      end_time: event.end_time,
+      all_day: event.all_day,
+      recurrence_rule: event.recurrence_rule,
+      external_calendar_id: event.external_calendar_id,
+      external_event_id: event.external_event_id,
       color: event.color,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
+      created_at: event.created_at,
+      updated_at: event.updated_at,
+      attendees: event.attendees,
     });
     setFormVisible(true);
   };

@@ -20,7 +20,7 @@ import { DeleteOutlined, SaveOutlined, CloseOutlined, EnvironmentOutlined, TeamO
 import dayjs, { Dayjs } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate } from '../../types/calendar';
+import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate, EventAttendeeCreate } from '../../types/calendar';
 import { createEvent, updateEvent, deleteEvent } from '../../services/calendar';
 import { contactsApi } from '../../services/contacts';
 import type { ContactSummary } from '../../types/contacts';
@@ -123,6 +123,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [contactSearchResults, setContactSearchResults] = useState<ContactSummary[]>([]);
   const [contactSearchLoading, setContactSearchLoading] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<ContactSummary[]>([]);
+  const [selectedAttendees, setSelectedAttendees] = useState<EventAttendeeCreate[]>([]);
+  const [contactSearchValue, setContactSearchValue] = useState('');
   const [recurrenceType, setRecurrenceType] = useState<string>('none');
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceEndType, setRecurrenceEndType] = useState<string>('never');
@@ -265,46 +267,80 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
     const contact = contactSearchResults.find(c => c.id === contactId);
     if (contact) {
       setSelectedContacts([...selectedContacts, contact]);
-      // Add email to external guests if available
-      if (contact.primary_email && !externalGuests.includes(contact.primary_email)) {
-        setExternalGuests([...externalGuests, contact.primary_email]);
-      }
+      // Create an EventAttendeeCreate for this contact
+      const newAttendee: EventAttendeeCreate = {
+        contact_id: contact.id,
+        email: contact.primary_email || undefined,
+        display_name: contact.display_name || `${contact.first_name} ${contact.last_name || ''}`.trim(),
+      };
+      setSelectedAttendees([...selectedAttendees, newAttendee]);
       setContactSearchResults([]);
+      setContactSearchValue('');
     }
   };
 
   const handleRemoveContact = (contactId: string) => {
-    const contact = selectedContacts.find(c => c.id === contactId);
     setSelectedContacts(selectedContacts.filter(c => c.id !== contactId));
-    // Also remove their email from external guests
-    if (contact?.primary_email) {
-      setExternalGuests(externalGuests.filter(e => e !== contact.primary_email));
+    // Also remove from selectedAttendees
+    setSelectedAttendees(selectedAttendees.filter(a => a.contact_id !== contactId));
+  };
+
+  const handleAddEmailGuest = () => {
+    const email = guestInputValue.trim();
+    if (email && email.includes('@')) {
+      // Check not already added
+      if (!selectedAttendees.some(a => a.email === email)) {
+        const newAttendee: EventAttendeeCreate = {
+          email: email,
+          display_name: email,
+        };
+        setSelectedAttendees([...selectedAttendees, newAttendee]);
+      }
+      setGuestInputValue('');
     }
+  };
+
+  const handleRemoveAttendee = (attendee: EventAttendeeCreate) => {
+    if (attendee.contact_id) {
+      setSelectedContacts(selectedContacts.filter(c => c.id !== attendee.contact_id));
+    }
+    setSelectedAttendees(selectedAttendees.filter(a =>
+      !(a.contact_id === attendee.contact_id && a.email === attendee.email)
+    ));
   };
 
   useEffect(() => {
     if (visible) {
       if (mode === 'edit' && event) {
         // Populate form with event data
-        const startTime = dayjs(event.startTime).tz('Europe/London');
-        const endTime = event.endTime ? dayjs(event.endTime).tz('Europe/London') : null;
+        const startTime = dayjs(event.start_time).tz('Europe/London');
+        const endTime = event.end_time ? dayjs(event.end_time).tz('Europe/London') : null;
 
-        setAllDay(event.allDay || false);
-        setSelectedLead(event.userId || undefined);
+        setAllDay(event.all_day || false);
+        setSelectedLead(event.user_id || undefined);
         
-        // TODO: Load attendees and external guests from event data when backend supports it
-        setExternalGuests([]);
+        // Load attendees from event data
+        if (event.attendees && event.attendees.length > 0) {
+          const loadedAttendees: EventAttendeeCreate[] = event.attendees.map(a => ({
+            contact_id: a.contact_id || undefined,
+            email: a.email || undefined,
+            display_name: a.display_name || undefined,
+          }));
+          setSelectedAttendees(loadedAttendees);
+        } else {
+          setSelectedAttendees([]);
+        }
         setSelectedContacts([]);
 
         form.setFieldsValue({
           title: event.title,
           description: event.description || '',
           startDate: startTime,
-          startTime: event.allDay ? null : startTime,
+          startTime: event.all_day ? null : startTime,
           endDate: endTime,
-          endTime: event.allDay || !endTime ? null : endTime,
-          allDay: event.allDay || false,
-          eventLead: event.userId || undefined,
+          endTime: event.all_day || !endTime ? null : endTime,
+          allDay: event.all_day || false,
+          eventLead: event.user_id || undefined,
           attendees: [], // TODO: Load from event when backend supports
           location: event.location || '',
           color: event.color || '#1890ff',
@@ -335,6 +371,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         setSelectedLead(undefined);
         setExternalGuests([]);
         setSelectedContacts([]);
+        setSelectedAttendees([]);
         setRecurrenceType('none');
         setRecurrenceEndType('never');
         setRecurrenceEndDate(null);
@@ -449,9 +486,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         location: values.location || null,
         color: typeof values.color === 'string' ? values.color : values.color.toHexString(),
         recurrence_rule: recurrenceRule,
-        // TODO: Send attendees and externalGuests when backend supports it
-        // attendees: values.attendees || [],
-        // externalGuests: externalGuests,
+        attendees: selectedAttendees,
       };
 
       if (mode === 'create') {
@@ -464,6 +499,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
 
       form.resetFields();
       setExternalGuests([]);
+      setSelectedAttendees([]);
+      setSelectedContacts([]);
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -497,6 +534,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const handleCancel = () => {
     form.resetFields();
     setExternalGuests([]);
+    setSelectedAttendees([]);
+    setSelectedContacts([]);
     onClose();
   };
 
@@ -761,34 +800,61 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
           </Select>
         </Form.Item>
 
-        <Form.Item 
-          label="External Guests (Phase 1.5: Contact sync integration)"
-          extra="Press Enter or comma to add email addresses"
+        <Form.Item
+          label="External Guests"
+          extra="Search for contacts or add email addresses"
         >
           <div>
-            <Input
-              placeholder="Add guest email addresses"
-              value={guestInputValue}
-              onChange={handleGuestInputChange}
-              onKeyDown={handleGuestInputKeyDown}
+            {/* Contact search */}
+            <AutoComplete
+              value={contactSearchValue}
+              options={contactSearchResults.map(c => ({
+                value: c.id,
+                label: `${c.first_name} ${c.last_name || ''} ${c.primary_email ? `(${c.primary_email})` : ''}`.trim(),
+              }))}
+              onSearch={(value) => {
+                setContactSearchValue(value);
+                handleContactSearch(value);
+              }}
+              onSelect={handleSelectContact}
+              placeholder="Search contacts by name..."
+              style={{ width: '100%', marginBottom: 8 }}
               size="large"
-              disabled
-              suffix={
-                <span style={{ fontSize: 12, color: '#999' }}>
-                  Coming in Phase 1.5
-                </span>
-              }
+              notFoundContent={contactSearchLoading ? 'Searching...' : contactSearchValue.length >= 2 ? 'No contacts found' : 'Type to search'}
             />
-            {externalGuests.length > 0 && (
+
+            {/* Email input */}
+            <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
+              <Input
+                placeholder="Or add email address..."
+                value={guestInputValue}
+                onChange={(e) => setGuestInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddEmailGuest();
+                  }
+                }}
+                size="large"
+              />
+              <Button size="large" onClick={handleAddEmailGuest} icon={<UserAddOutlined />}>
+                Add
+              </Button>
+            </Space.Compact>
+
+            {/* Selected attendees */}
+            {selectedAttendees.length > 0 && (
               <div style={{ marginTop: 8 }}>
-                {externalGuests.map(email => (
+                {selectedAttendees.map((attendee, index) => (
                   <Tag
-                    key={email}
+                    key={`${attendee.contact_id || attendee.email}-${index}`}
                     closable
-                    onClose={() => handleRemoveGuest(email)}
+                    onClose={() => handleRemoveAttendee(attendee)}
                     style={{ marginBottom: 4 }}
+                    color={attendee.contact_id ? 'blue' : 'default'}
                   >
-                    {email}
+                    {attendee.display_name}
+                    {attendee.email && attendee.contact_id && ` (${attendee.email})`}
                   </Tag>
                 ))}
               </div>

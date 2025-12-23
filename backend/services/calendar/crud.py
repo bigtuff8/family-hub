@@ -9,11 +9,38 @@ from sqlalchemy.orm import selectinload
 from uuid import UUID
 from datetime import date, datetime
 from typing import Optional, List
-from shared.models import CalendarEvent
-from services.calendar.schemas import CalendarEventCreate, CalendarEventUpdate
+from shared.models import CalendarEvent, EventAttendee, Contact
+from services.calendar.schemas import CalendarEventCreate, CalendarEventUpdate, EventAttendeeCreate, RSVPUpdate
 
 class CalendarCRUD:
     """CRUD operations for calendar events"""
+
+    @staticmethod
+    async def _process_attendees(
+        db: AsyncSession,
+        event_id: UUID,
+        tenant_id: UUID,
+        attendees: List[EventAttendeeCreate]
+    ) -> None:
+        """Helper method to process and create event attendees"""
+        for attendee_data in attendees:
+            display_name = attendee_data.email  # Default to email
+
+            # If contact_id is provided, get display_name from contact
+            if attendee_data.contact_id:
+                contact = await db.get(Contact, attendee_data.contact_id)
+                if contact:
+                    display_name = contact.display_name
+
+            # Create EventAttendee object
+            db_attendee = EventAttendee(
+                event_id=event_id,
+                contact_id=attendee_data.contact_id,
+                email=attendee_data.email,
+                display_name=display_name,
+                rsvp_status='pending'
+            )
+            db.add(db_attendee)
     
     @staticmethod
     async def create_event(
@@ -22,14 +49,32 @@ class CalendarCRUD:
         event: CalendarEventCreate
     ) -> CalendarEvent:
         """Create a new calendar event"""
+        # Extract attendees before creating the event
+        attendees = event.attendees if event.attendees else []
+
+        # Create event without attendees
         db_event = CalendarEvent(
             tenant_id=tenant_id,
-            **event.model_dump()
+            **event.model_dump(exclude={'attendees'})
         )
         db.add(db_event)
+        await db.flush()  # Flush to get event ID
+
+        # Process attendees
+        if attendees:
+            await CalendarCRUD._process_attendees(db, db_event.id, tenant_id, attendees)
+
         await db.commit()
-        await db.refresh(db_event)
-        return db_event
+
+        # Return event with attendees loaded
+        result = await db.execute(
+            select(CalendarEvent)
+            .options(
+                selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+            )
+            .where(CalendarEvent.id == db_event.id)
+        )
+        return result.scalar_one()
     
     @staticmethod
     async def get_event(
@@ -40,6 +85,9 @@ class CalendarCRUD:
         """Get a single calendar event by ID"""
         result = await db.execute(
             select(CalendarEvent)
+            .options(
+                selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+            )
             .where(
                 and_(
                     CalendarEvent.id == event_id,
@@ -89,6 +137,11 @@ class CalendarCRUD:
             query = query.where(and_(*filters))
             count_query = count_query.where(and_(*filters))
         
+        # Eagerly load attendees
+        query = query.options(
+            selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+        )
+
         # Order by start time
         query = query.order_by(CalendarEvent.start_time.asc())
         
@@ -97,7 +150,7 @@ class CalendarCRUD:
         
         # Execute queries
         result = await db.execute(query)
-        events = result.scalars().all()
+        events = result.scalars().unique().all()
         
         count_result = await db.execute(count_query)
         total = count_result.scalar()
@@ -126,11 +179,16 @@ class CalendarCRUD:
         
         if user_id:
             query = query.where(CalendarEvent.user_id == user_id)
+
+        # Eagerly load attendees
+        query = query.options(
+            selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+        )
         
         query = query.order_by(CalendarEvent.start_time.asc())
         
         result = await db.execute(query)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
     
     @staticmethod
     async def update_event(
@@ -145,14 +203,38 @@ class CalendarCRUD:
         if not db_event:
             return None
         
-        # Update fields
+        # Extract attendees separately
         update_data = event_update.model_dump(exclude_unset=True)
+        attendees = update_data.pop('attendees', None)
+        
+        # Update fields
         for field, value in update_data.items():
             setattr(db_event, field, value)
         
+        # Handle attendees update
+        if attendees is not None:
+            # Delete existing attendees
+            await db.execute(
+                delete(EventAttendee)
+                .where(EventAttendee.event_id == event_id)
+            )
+            await db.flush()
+            
+            # Create new attendees
+            if attendees:
+                await CalendarCRUD._process_attendees(db, event_id, tenant_id, attendees)
+        
         await db.commit()
-        await db.refresh(db_event)
-        return db_event
+        
+        # Return with attendees loaded
+        result = await db.execute(
+            select(CalendarEvent)
+            .options(
+                selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+            )
+            .where(CalendarEvent.id == event_id)
+        )
+        return result.scalar_one()
     
     @staticmethod
     async def delete_event(
@@ -209,11 +291,16 @@ class CalendarCRUD:
         
         if user_id:
             query = query.where(CalendarEvent.user_id == user_id)
+
+        # Eagerly load attendees
+        query = query.options(
+            selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+        )
         
         query = query.order_by(CalendarEvent.start_time.asc()).limit(limit)
         
         result = await db.execute(query)
-        return list(result.scalars().all())
+        return list(result.scalars().unique().all())
     
     @staticmethod
     async def search_events(
@@ -247,13 +334,87 @@ class CalendarCRUD:
             )
         )
         
+        # Eagerly load attendees
+        query = query.options(
+            selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
+        )
+
         # Pagination
         query = query.offset(skip).limit(limit)
         
         result = await db.execute(query)
-        events = result.scalars().all()
+        events = result.scalars().unique().all()
         
         count_result = await db.execute(count_query)
         total = count_result.scalar()
         
         return list(events), total
+
+    @staticmethod
+    async def update_attendee_rsvp(
+        db: AsyncSession,
+        tenant_id: UUID,
+        event_id: UUID,
+        attendee_id: UUID,
+        rsvp_update: RSVPUpdate
+    ) -> Optional[EventAttendee]:
+        """Update an attendee's RSVP status"""
+        # Verify event belongs to tenant
+        event = await CalendarCRUD.get_event(db, tenant_id, event_id)
+        if not event:
+            return None
+
+        # Get the attendee
+        result = await db.execute(
+            select(EventAttendee)
+            .where(
+                and_(
+                    EventAttendee.id == attendee_id,
+                    EventAttendee.event_id == event_id
+                )
+            )
+        )
+        attendee = result.scalar_one_or_none()
+
+        if not attendee:
+            return None
+
+        # Update RSVP status and timestamp
+        attendee.rsvp_status = rsvp_update.rsvp_status
+        attendee.responded_at = datetime.now()
+
+        await db.commit()
+
+        # Return attendee with contact loaded
+        result = await db.execute(
+            select(EventAttendee)
+            .options(selectinload(EventAttendee.contact))
+            .where(EventAttendee.id == attendee_id)
+        )
+        return result.scalar_one()
+
+    @staticmethod
+    async def get_attendee(
+        db: AsyncSession,
+        tenant_id: UUID,
+        event_id: UUID,
+        attendee_id: UUID
+    ) -> Optional[EventAttendee]:
+        """Get a specific attendee"""
+        # Verify event belongs to tenant
+        event = await CalendarCRUD.get_event(db, tenant_id, event_id)
+        if not event:
+            return None
+
+        # Get the attendee with contact loaded
+        result = await db.execute(
+            select(EventAttendee)
+            .options(selectinload(EventAttendee.contact))
+            .where(
+                and_(
+                    EventAttendee.id == attendee_id,
+                    EventAttendee.event_id == event_id
+                )
+            )
+        )
+        return result.scalar_one_or_none()

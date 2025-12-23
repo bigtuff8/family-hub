@@ -1,3 +1,29 @@
+export type RSVPStatus = 'pending' | 'accepted' | 'declined' | 'tentative';
+
+export interface ContactSummaryForAttendee {
+  id: string;
+  first_name: string;
+  last_name?: string;
+  display_name?: string;
+  primary_email?: string;
+}
+
+export interface EventAttendee {
+  id: string;
+  contact_id?: string;
+  email?: string;
+  display_name?: string;
+  rsvp_status: RSVPStatus;
+  responded_at?: string;
+  contact?: ContactSummaryForAttendee;
+}
+
+export interface EventAttendeeCreate {
+  contact_id?: string;
+  email?: string;
+  display_name?: string;
+}
+
 export interface CalendarEvent {
   id: string;
   tenant_id: string;  // Changed from tenantId
@@ -14,6 +40,7 @@ export interface CalendarEvent {
   color: string | null;
   created_at: string;  // Changed from createdAt
   updated_at: string;  // Changed from updatedAt
+  attendees?: EventAttendee[];
 }
 
 export interface CalendarEventCreate {
@@ -27,6 +54,7 @@ export interface CalendarEventCreate {
   user_id?: string | null;  // Changed from userId
   color?: string | null;
   recurrence_rule?: string | null;  // Changed from recurrenceRule
+  attendees?: EventAttendeeCreate[];
 }
 
 export interface CalendarEventUpdate {

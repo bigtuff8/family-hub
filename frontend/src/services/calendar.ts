@@ -1,5 +1,5 @@
 import api from './api';
-import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate } from '../types/calendar';
+import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate, EventAttendee, RSVPStatus } from '../types/calendar';
 
 export const getEvents = async (
   startDate?: string,
@@ -33,4 +33,33 @@ export const updateEvent = async (
 
 export const deleteEvent = async (id: string): Promise<void> => {
   await api.delete(`/api/v1/calendar/events/${id}`);
+};
+
+export const updateAttendeeRSVP = async (
+  eventId: string,
+  attendeeId: string,
+  rsvpStatus: RSVPStatus
+): Promise<EventAttendee> => {
+  // Get tenant_id from localStorage user object
+  const userStr = localStorage.getItem('familyhub_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const tenantId = user?.tenant_id;
+
+  if (!tenantId) {
+    throw new Error('Tenant ID not found in user session');
+  }
+
+  const params = new URLSearchParams();
+  params.append('tenant_id', tenantId);
+
+  const response = await api.patch(
+    `/api/v1/calendar/events/${eventId}/attendees/${attendeeId}/rsvp?${params.toString()}`,
+    { rsvp_status: rsvpStatus }
+  );
+  return response.data;
+};
+
+// Export as calendarApi for backwards compatibility
+export const calendarApi = {
+  updateAttendeeRSVP
 };

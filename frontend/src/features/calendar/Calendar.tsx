@@ -31,6 +31,21 @@ export interface CalendarEvent {
   user?: {
     name: string;
   };
+  attendees?: {
+    id: string;
+    contact_id?: string;
+    email?: string;
+    display_name?: string;
+    rsvp_status: 'pending' | 'accepted' | 'declined' | 'tentative';
+    responded_at?: string;
+    contact?: {
+      id: string;
+      first_name: string;
+      last_name?: string;
+      display_name?: string;
+      primary_email?: string;
+    };
+  }[];
 }
 
 export default function Calendar() {

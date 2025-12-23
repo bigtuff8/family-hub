@@ -17,6 +17,7 @@ import { CalendarEvent } from './Calendar';
 import { deleteEvent } from '../../services/calendar';
 import { getRecurrenceDescription, isRecurringEvent } from '../../utils/recurrence';
 import CalendarEventForm from './CalendarEventForm';
+import AttendeeList from './AttendeeList';
 import './EventDetailsModal.css';
 
 dayjs.extend(utc);
@@ -214,6 +215,19 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               </div>
             )}
           </div>
+
+
+          {/* Attendees */}
+          {event.attendees && event.attendees.length > 0 && (
+            <>
+              <Divider style={{ margin: '24px 0' }} />
+              <AttendeeList
+                eventId={event.id}
+                attendees={event.attendees}
+                onUpdate={onRefresh}
+              />
+            </>
+          )}
 
           <Divider style={{ margin: '24px 0' }} />
 
