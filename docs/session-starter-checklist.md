@@ -2,7 +2,7 @@
 
 Use this document at the start of each development session to remind Claude of context, priorities, and constraints.
 
-**Last Updated:** December 21, 2025
+**Last Updated:** December 23, 2025
 **Project:** Family Hub
 **Current Phase:** Phase 2 - Advanced Features
 
@@ -11,6 +11,7 @@ Use this document at the start of each development session to remind Claude of c
 ## Quick Start (Paste This at Session Start)
 I'm continuing work on Family Hub. Please review:
 
+CLAUDE.md - Development best practices (IMPORTANT)
 docs/technical-debt.md - Current technical debt
 docs/session-starter-checklist.md - This checklist
 
@@ -67,7 +68,7 @@ Working on: [describe what you're building]
 - [ ] Tasks/Chores feature
 - [ ] Meal planning
 - [ ] Family relationships (TD-002)
-- [ ] External contacts (TD-003)
+- [x] External contacts (TD-003) ✅ COMPLETE
 
 **What NOT to build yet:**
 - ❌ Cross-tenant invitations (Phase 2 - later)
@@ -122,6 +123,44 @@ Working on: [describe what you're building]
 
 **Target Hardware:**
 - Raspberry Pi 5 (8GB) with touchscreen
+
+
+---
+
+### ✅ 4b. Development Best Practices (CRITICAL)
+
+**These patterns were learned from bug fixes - ALWAYS follow them:**
+
+**API Data Naming:**
+- Backend returns snake_case (`start_time`, `end_time`, `all_day`)
+- Frontend MUST use snake_case when accessing API response data
+- DON'T convert to camelCase unnecessarily
+
+**SQLAlchemy Relationships:**
+- Always use `selectinload()` for nested relationships
+- Example: `selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)`
+- Without this, related data won't appear in API responses
+
+**Serializing Related Objects:**
+- Explicitly serialize nested objects (attendees, contacts, etc.)
+- ORM objects don't auto-serialize to JSON
+
+**Cross-Platform Icons:**
+- Use Ant Design icons (`<PlusOutlined />`) instead of emoji
+- Emoji characters don't render on Pi browser
+- Use inline SVG for custom icons
+
+**Docker Deployment:**
+- If changes don't appear after push, run on Pi:
+  ```bash
+  docker-compose build --no-cache && docker-compose up -d
+  ```
+
+**Form State:**
+- Always reset form state when opening for new entries
+- Pass ALL required fields (including relationships) when editing
+
+📖 **Full Reference:** See `CLAUDE.md` for detailed best practices
 
 ---
 

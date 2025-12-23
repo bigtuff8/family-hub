@@ -3,7 +3,7 @@
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
 **Start Date:** October 2025
 **Current Phase:** Phase 2 - Integration & Sync
-**Last Updated:** December 21, 2025
+**Last Updated:** December 23, 2025
 
 ---
 
@@ -176,10 +176,16 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 
 ### Remaining Phase 2 Features 📋
 
-**2.1 Contacts + Address Book Sync:**
-- [ ] External contacts table (non-users: grandparents, friends)
-- [ ] Contact management UI
-- [ ] Birthday tracking
+**2.1 Contacts + Event Attendees:** ✅ COMPLETE (December 23, 2025)
+- [x] External contacts table (non-users: grandparents, friends)
+- [x] Contact management UI (Contacts page with CRUD)
+- [x] Birthday tracking
+- [x] Event attendees feature (add contacts to calendar events)
+- [x] Attendee display in event details modal
+- [x] Attendee editing in calendar event form
+- [x] RSVP status tracking (pending, accepted, declined, tentative)
+
+**2.1b Address Book Sync:** (Future)
 - [ ] Sync from iCloud address book
 - [ ] Sync from Google Contacts
 - [ ] Sync from Yahoo address book
@@ -413,6 +419,6 @@ Major decisions that will affect roadmap:
 ---
 
 **Document Version:** 3.0
-**Last Updated:** December 21, 2025
+**Last Updated:** December 23, 2025
 **Next Review:** Phase 2 completion (Integration & Sync)
 **Owner:** James Brown

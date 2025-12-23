@@ -2,7 +2,7 @@
 
 This document tracks known technical debt, shortcuts, and future refactoring needs.
 
-**Last Updated:** December 21, 2025
+**Last Updated:** December 23, 2025
 **Project Phase:** Phase 2 - Advanced Features
 **Project:** Family Hub
 
@@ -314,6 +314,65 @@ Add `event_invitations` table.
 
 ---
 
+
+### 🟢 TD-018: Emoji Characters for Icons
+**Status:** ✅ RESOLVED (December 23, 2025)
+**Resolution:** Replaced emoji characters with Ant Design icons and SVG
+**Resolved By:** Icon rendering fix session
+
+**Issue:**
+Emoji characters (☀️, ➕, 📅, 👥) used in Quick Actions and Weather widget don't render properly on Pi browser due to missing emoji fonts.
+
+**Solution Implemented:**
+- Replace emoji characters with Ant Design icons: `<PlusOutlined />`, `<CalendarOutlined />`, `<TeamOutlined />`
+- Replace weather emoji with inline SVG for consistent cross-platform rendering
+- **Best Practice:** Always use icon libraries (Ant Design icons) or SVG instead of emoji for UI elements
+
+**Related Files:**
+- `frontend/src/features/calendar/CalendarTablet.tsx`
+- `frontend/src/features/calendar/CalendarMobile.tsx`
+
+---
+
+### 🟢 TD-019: API Response Snake_case Consistency
+**Status:** ✅ RESOLVED (December 23, 2025)
+**Resolution:** Standardized on snake_case for API data
+**Resolved By:** Event attendees feature development
+
+**Issue:**
+Frontend code was mixing camelCase (`startTime`) and snake_case (`start_time`) when accessing API response data, causing undefined values.
+
+**Solution Implemented:**
+- Backend returns snake_case (e.g., `start_time`, `end_time`, `all_day`)
+- Frontend uses snake_case when accessing API response properties
+- Don't convert to camelCase unnecessarily - use the format the API returns
+- **Best Practice:** Keep consistent naming: API returns snake_case, frontend uses snake_case for API data
+
+**Related Files:**
+- `frontend/src/features/calendar/CalendarEventForm.tsx`
+- `frontend/src/features/calendar/CalendarTablet.tsx`
+
+---
+
+### 🟢 TD-020: Missing Attendees in API Responses
+**Status:** ✅ RESOLVED (December 23, 2025)
+**Resolution:** Added selectinload for eager loading attendees
+**Resolved By:** Event attendees feature development
+
+**Issue:**
+Calendar event API responses weren't including attendees data because SQLAlchemy relationships weren't being eagerly loaded.
+
+**Solution Implemented:**
+- Added `selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)` to queries
+- Created `serialize_attendees()` helper function to convert ORM objects to dict
+- Explicitly include attendees in all event API responses
+- **Best Practice:** Always use `selectinload()` for nested relationships and explicitly serialize related objects
+
+**Related Files:**
+- `backend/services/calendar/routes.py`
+
+---
+
 ## Decision Log
 
 ### Decision: Hard-code Tenant ID in Phase 1
@@ -377,6 +436,9 @@ Originally used manual 1-hour subtraction for BST. Now properly resolved with da
 | TD-002 | Family relationships | 🟡 Important | Planned | 3-5 days |
 | TD-003 | External contacts | 🟡 Important | Planned | 5-7 days |
 | TD-004 | Cross-tenant invites | 🟡 Important | Planned | 1 week |
+| TD-018 | Emoji icons rendering | 🟢 Nice-to-have | ✅ Resolved | - |
+| TD-019 | Snake_case consistency | 🟢 Nice-to-have | ✅ Resolved | - |
+| TD-020 | Missing attendees in API | 🟢 Nice-to-have | ✅ Resolved | - |
 
 **Total Active Items:** 12 (0 Critical, 5 Important, 7 Nice-to-have)
 
@@ -392,6 +454,6 @@ Originally used manual 1-hour subtraction for BST. Now properly resolved with da
 ---
 
 **Document Version:** 3.0
-**Last Updated:** December 21, 2025
+**Last Updated:** December 23, 2025
 **Next Review:** Phase 2 completion
 **Owner:** James Brown
