@@ -5,6 +5,7 @@ import {
   EnvironmentOutlined,
   CalendarOutlined,
   PlusOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -106,7 +107,7 @@ export default function CalendarMobile({
             </Title>
           </div>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 40 }}>☀️</span>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#FFD93D"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="#FFD93D" strokeWidth="2" strokeLinecap="round"/></svg>
             <div style={{ fontSize: 24, fontWeight: 600 }}>18°C</div>
             <div style={{ fontSize: 12, opacity: 0.9 }}>Sunny</div>
           </div>
@@ -267,7 +268,7 @@ export default function CalendarMobile({
               fontWeight: 600,
             }}
           >
-            <span style={{ fontSize: 28 }}>➕</span>
+            <PlusOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
             <span style={{ fontSize: 13 }}>Add Event</span>
           </Button>
 
@@ -287,7 +288,7 @@ export default function CalendarMobile({
               fontWeight: 600,
             }}
           >
-            <span style={{ fontSize: 28 }}>📅</span>
+            <CalendarOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
             <span style={{ fontSize: 13 }}>Full Calendar</span>
           </Button>
           <Button
@@ -306,7 +307,7 @@ export default function CalendarMobile({
               fontWeight: 600,
             }}
           >
-            <span style={{ fontSize: 28 }}>👥</span>
+            <TeamOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
             <span style={{ fontSize: 13 }}>Contacts</span>
           </Button>
         </div>
