@@ -8,7 +8,7 @@ from typing import Optional
 from uuid import UUID
 import hashlib
 
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.models import User, Tenant, RefreshToken
@@ -18,7 +18,7 @@ from services.auth.security import get_password_hash, verify_password
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
     """Get user by email address."""
     result = await db.execute(
-        select(User).where(User.email == email)
+        select(User).where(func.lower(User.email) == email.lower())
     )
     return result.scalar_one_or_none()
 

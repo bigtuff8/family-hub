@@ -38,6 +38,7 @@ import dayjs from 'dayjs';
 import { useAuth } from '../auth/AuthContext';
 import { contactsApi } from '../../services/contacts';
 import { ContactDrawer } from './ContactDrawer';
+import { getInitials } from '../../utils/strings';
 import type { ContactSummary, Contact, ContactListResponse } from '../../types/contacts';
 import './ContactsPage.css';
 
@@ -167,9 +168,7 @@ export function ContactsPage() {
   };
 
   // Get user initials
-  const userInitials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+  const userInitials = getInitials(user?.name) || 'U';
 
   // Format birthday
   const formatBirthday = (birthday: string | null): string | null => {

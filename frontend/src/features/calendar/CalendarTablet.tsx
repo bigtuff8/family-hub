@@ -8,6 +8,7 @@ import { ShoppingSnapshot } from '../shopping';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import CalendarEventForm from './CalendarEventForm';
+import { getInitials } from '../../utils/strings';
 import './CalendarTablet.css';
 
 // Types - keep using the service types for now
@@ -63,9 +64,7 @@ export default function CalendarTablet({
   const navigate = useNavigate();
 
   // Get user initials
-  const userInitials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+  const userInitials = getInitials(user?.name) || 'U';
 
   // User dropdown menu items
   const userMenuItems = [
@@ -380,7 +379,7 @@ export default function CalendarTablet({
                       }}
                       size={36}
                     >
-                      {event.user.name.substring(0, 2).toUpperCase()}
+                      {getInitials(event.user.name)}
                     </Avatar>
                   )}
                 </div>

@@ -24,6 +24,7 @@ import { AddItemForm } from './AddItemForm';
 import { CategoryGroup } from './CategoryGroup';
 import { EditItemModal } from './EditItemModal';
 import { CategoryManagerDrawer } from './CategoryManagerDrawer';
+import { getInitials } from '../../utils/strings';
 import type { ShoppingList, ShoppingItem, ShoppingCategory, RecentlyCompletedDuplicate } from '../../types/shopping';
 import './ShoppingListPage.css';
 
@@ -201,9 +202,7 @@ export function ShoppingListPage() {
   const uncheckedItems = totalItems - checkedItems;
 
   // Get user initials
-  const userInitials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+  const userInitials = getInitials(user?.name) || 'U';
 
   const userMenuItems = [
     {

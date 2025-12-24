@@ -176,16 +176,14 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 
 ### Remaining Phase 2 Features 📋
 
-**2.1 Contacts + Event Attendees:** ✅ COMPLETE (December 23, 2025)
-- [x] External contacts table (non-users: grandparents, friends)
-- [x] Contact management UI (Contacts page with CRUD)
-- [x] Birthday tracking
-- [x] Event attendees feature (add contacts to calendar events)
-- [x] Attendee display in event details modal
-- [x] Attendee editing in calendar event form
-- [x] RSVP status tracking (pending, accepted, declined, tentative)
+**2.0 Mobile Access:**
+- [ ] Tailscale + Reverse Proxy setup for remote access
 
-**2.1b Address Book Sync:** (Future)
+**2.1 Contacts + Address Book Sync:**
+- [x] External contacts table (non-users: grandparents, friends) ✅ COMPLETE (Phase 2.1a)
+- [x] Contact management UI ✅ COMPLETE (Phase 2.1a)
+- [x] Birthday tracking ✅ COMPLETE (Phase 2.1a)
+- [x] Event attendees/RSVP ✅ COMPLETE (Phase 2.1b)
 - [ ] Sync from iCloud address book
 - [ ] Sync from Google Contacts
 - [ ] Sync from Yahoo address book

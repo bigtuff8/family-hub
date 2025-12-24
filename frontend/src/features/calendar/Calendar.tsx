@@ -8,6 +8,7 @@ import CalendarViews from './CalendarViews';
 import CalendarEventForm from './CalendarEventForm';
 import { getEvents } from '../../services/calendar';
 import { generateRecurringInstances } from '../../utils/recurrence';
+import { getInitials } from '../../utils/strings';
 import { useAuth } from '../auth';
 import dayjs from 'dayjs';
 
@@ -73,9 +74,7 @@ export default function Calendar() {
   };
 
   // Get user initials for mobile header
-  const userInitials = user?.name
-    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
+  const userInitials = getInitials(user?.name) || 'U';
 
   // User dropdown menu items
   const userMenuItems = [

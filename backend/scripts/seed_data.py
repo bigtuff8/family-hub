@@ -69,7 +69,7 @@ async def seed_database():
                 User(
                     id=USER_JAMES_ID,
                     tenant_id=TENANT_ID,
-                    name="James",
+                    name="James Brown",
                     email="bigtuff8@yahoo.com",
                     role="admin",
                     date_of_birth=datetime(1982, 3, 10).date(),
@@ -79,7 +79,7 @@ async def seed_database():
                 User(
                     id=USER_NICOLA_ID,
                     tenant_id=TENANT_ID,
-                    name="Nicola",
+                    name="Nicola Brown",
                     email="nicolabrown80@icloud.com",
                     role="admin",
                     date_of_birth=datetime(1980, 10, 25).date(),
@@ -89,7 +89,7 @@ async def seed_database():
                 User(
                     id=USER_TOMMY_ID,
                     tenant_id=TENANT_ID,
-                    name="Tommy",
+                    name="Tommy Brown",
                     email="thomas.j.brown11@icloud.com",
                     role="child",
                     date_of_birth=datetime(2012, 5, 4).date(),
@@ -99,7 +99,7 @@ async def seed_database():
                 User(
                     id=USER_HARRY_ID,
                     tenant_id=TENANT_ID,
-                    name="Harry",
+                    name="Harry Brown",
                     email="Harry.m.brown@icloud.com",  # CORRECTED - capital H
                     role="child",
                     date_of_birth=datetime(2018, 10, 23).date(),

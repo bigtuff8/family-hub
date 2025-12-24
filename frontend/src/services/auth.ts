@@ -6,11 +6,11 @@
 import axios from 'axios';
 import type { LoginRequest, TokenResponse, RefreshResponse, CurrentUserResponse } from '../types/auth';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = '';
 
 // Create axios instance for auth
 const authApi = axios.create({
-  baseURL: `${API_URL}/api/v1/auth`,
+  baseURL: `/api/v1/auth`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -18,7 +18,7 @@ const authApi = axios.create({
 
 // Create axios instance for authenticated requests
 export const api = axios.create({
-  baseURL: `${API_URL}/api/v1`,
+  baseURL: `/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },

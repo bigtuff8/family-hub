@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  # Caddy Reverse Proxy - Single entry point for frontend + API
+  caddy:
+    image: caddy:2-alpine
+    container_name: familyhub-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
@@ -45,7 +61,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: familyhub-frontend
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: ""
       VITE_GETADDRESS_API_KEY: WdZk5HROZ06OnCmwB3BJCg49348
     volumes:
       - ./frontend:/app
@@ -57,3 +73,5 @@ services:
 
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

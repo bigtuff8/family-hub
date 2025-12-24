@@ -68,28 +68,28 @@ async def seed_users(db: AsyncSession, tenant: Tenant) -> dict[str, User]:
     users_data = [
         {
             "id": USER_IDS["james"],
-            "name": "James",
+            "name": "James Brown",
             "email": "james@brown.family",
             "role": "admin",
             "color": "#e30613",  # Liverpool red
         },
         {
             "id": USER_IDS["nicola"],
-            "name": "Nicola",
+            "name": "Nicola Brown",
             "email": "nicola@brown.family",
             "role": "parent",
             "color": "#fb7185",  # Pink
         },
         {
             "id": USER_IDS["tommy"],
-            "name": "Tommy",
+            "name": "Tommy Brown",
             "email": "tommy@brown.family",
             "role": "child",
             "color": "#00B140",  # Liverpool green
         },
         {
             "id": USER_IDS["harry"],
-            "name": "Harry",
+            "name": "Harry Brown",
             "email": "harry@brown.family",
             "role": "child",
             "color": "#1D428A",  # Leeds blue
@@ -107,7 +107,7 @@ async def seed_users(db: AsyncSession, tenant: Tenant) -> dict[str, User]:
 
         if existing:
             print(f"  User already exists: {existing.name}")
-            users[data["name"].lower()] = existing
+            users[data["name"].split()[0].lower()] = existing
             continue
 
         user = User(
@@ -122,7 +122,7 @@ async def seed_users(db: AsyncSession, tenant: Tenant) -> dict[str, User]:
         )
         db.add(user)
         print(f"  Created user: {data['name']} ({data['email']})")
-        users[data["name"].lower()] = user
+        users[data["name"].split()[0].lower()] = user  # Use first name as key
 
     await db.commit()
     return users

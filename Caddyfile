@@ -1,0 +1,28 @@
+# Family Hub - Caddy Reverse Proxy Configuration
+# Location: Caddyfile
+#
+# This configuration serves both frontend and backend from a single origin,
+# eliminating CORS issues and enabling mobile access via Tailscale.
+
+:80 {
+    # API routes - proxy to backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Health check endpoint
+    handle /health {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else - proxy to frontend
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    # Logging
+    log {
+        output stdout
+        format console
+    }
+}
