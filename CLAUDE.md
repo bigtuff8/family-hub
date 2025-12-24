@@ -126,24 +126,11 @@ docker-compose up -d frontend
 
 ---
 
-### 6. OneDrive Sync File Conflicts
+### 6. Project Location
 
-**Rule:** When Edit tool fails due to file modification, use Python scripts
+**Location:** `C:\Dev\family-hub`
 
-```python
-# Create a temporary Python script for batch edits
-# This avoids OneDrive sync race conditions
-
-with open('path/to/file.tsx', 'r', encoding='utf-8') as f:
-    content = f.read()
-
-content = content.replace('old_text', 'new_text')
-
-with open('path/to/file.tsx', 'w', encoding='utf-8') as f:
-    f.write(content)
-```
-
-**Why:** OneDrive syncs files during editing, causing "file unexpectedly modified" errors.
+**Note:** This project was moved from OneDrive to local storage on December 24, 2025 to eliminate sync conflicts that caused "file unexpectedly modified" errors during Claude Code edits.
 
 ---
 

@@ -4,7 +4,7 @@
 
 1. **Start the application**:
    ```bash
-   cd /c/projects/familyhub/family-hub
+   cd C:\Dev\family-hub
    # Start backend (if not running)
    cd backend && python -m uvicorn app.main:app --reload
    # Start frontend (in another terminal)
