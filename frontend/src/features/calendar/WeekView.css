@@ -193,6 +193,12 @@
     grid-template-columns: 60px repeat(7, 100px);
   }
 
+  .week-view-header,
+  .week-view-allday,
+  .week-view-grid {
+    min-width: 760px; /* 60px time column + 7 * 100px day columns */
+  }
+
   .time-column-header,
   .time-column-label {
     padding: 8px 4px;

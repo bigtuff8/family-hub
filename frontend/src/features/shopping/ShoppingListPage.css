@@ -160,6 +160,7 @@
 
   .shopping-header-full .header-left {
     width: 100%;
+    padding-right: 60px; /* Make room for absolute-positioned avatar */
   }
 
   .shopping-header-full .header-center {

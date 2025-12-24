@@ -201,6 +201,7 @@
     min-width: auto;
     padding: 0 12px;
     text-align: center;
+    color: #1a2332; /* Dark color for visibility on cream mobile background */
   }
 
   /* Hide desktop view tabs on mobile */

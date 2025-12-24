@@ -6,6 +6,8 @@ import {
   CalendarOutlined,
   PlusOutlined,
   TeamOutlined,
+  DownOutlined,
+  UpOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -51,6 +53,8 @@ export default function CalendarMobile({
   onNavigateToCalendar,
 }: CalendarMobileProps) {
   const [formVisible, setFormVisible] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const navigate = useNavigate();
   // Parse UTC time and convert to local timezone
   const parseEventTime = (utcTimeString: string) => {
@@ -67,10 +71,20 @@ export default function CalendarMobile({
     .sort((a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix())
     .slice(0, 10);
 
+  // Limit displayed upcoming events to 3 unless expanded
+  const displayedUpcomingEvents = showAllUpcoming
+    ? upcomingEvents
+    : upcomingEvents.slice(0, 3);
+
   const formatTime = (utcTimeString: string) =>
     parseEventTime(utcTimeString).format("h:mm A");
   const formatDate = (utcTimeString: string) =>
     parseEventTime(utcTimeString).format("ddd, MMM D");
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setFormVisible(true);
+  };
 
   return (
     <div
@@ -134,6 +148,7 @@ export default function CalendarMobile({
             dataSource={todayEvents}
             renderItem={(event) => (
               <List.Item
+                onClick={() => handleEventClick(event)}
                 style={{
                   padding: "12px 0",
                   borderLeft: `4px solid ${event.color || "#2dd4bf"}`,
@@ -141,6 +156,7 @@ export default function CalendarMobile({
                   marginBottom: 8,
                   background: "#fef7f0",
                   borderRadius: 8,
+                  cursor: "pointer",
                 }}
               >
                 <div style={{ flex: 1 }}>
@@ -190,48 +206,78 @@ export default function CalendarMobile({
             No upcoming events
           </div>
         ) : (
-          <List
-            dataSource={upcomingEvents}
-            renderItem={(event) => (
-              <List.Item
+          <>
+            <List
+              dataSource={displayedUpcomingEvents}
+              renderItem={(event) => (
+                <List.Item
+                  onClick={() => handleEventClick(event)}
+                  style={{
+                    padding: "12px 0",
+                    borderLeft: `4px solid ${event.color || "#2dd4bf"}`,
+                    paddingLeft: 12,
+                    marginBottom: 8,
+                    background: "#fef7f0",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}
+                    >
+                      {event.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        color: "#64748b",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <ClockCircleOutlined />
+                      {formatDate(event.start_time)}
+                      {!event.all_day && ` • ${formatTime(event.start_time)}`}
+                      {event.location && (
+                        <>
+                          <EnvironmentOutlined />
+                          {event.location}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </List.Item>
+              )}
+            />
+            {upcomingEvents.length > 3 && (
+              <div
+                onClick={() => setShowAllUpcoming(!showAllUpcoming)}
                 style={{
+                  textAlign: "center",
                   padding: "12px 0",
-                  borderLeft: `4px solid ${event.color || "#2dd4bf"}`,
-                  paddingLeft: 12,
-                  marginBottom: 8,
-                  background: "#fef7f0",
-                  borderRadius: 8,
+                  color: "#2dd4bf",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
                 }}
               >
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}
-                  >
-                    {event.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      color: "#64748b",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    <ClockCircleOutlined />
-                    {formatDate(event.start_time)}
-                    {!event.all_day && ` • ${formatTime(event.start_time)}`}
-                    {event.location && (
-                      <>
-                        <EnvironmentOutlined />
-                        {event.location}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </List.Item>
+                {showAllUpcoming ? (
+                  <>
+                    <UpOutlined /> Show Less
+                  </>
+                ) : (
+                  <>
+                    <DownOutlined /> Show {upcomingEvents.length - 3} More
+                  </>
+                )}
+              </div>
             )}
-          />
+          </>
         )}
       </Card>
 
@@ -315,11 +361,16 @@ export default function CalendarMobile({
 
       {/* Event Form Modal */}
       <CalendarEventForm
-        mode="create"
+        mode={selectedEvent ? "edit" : "create"}
+        event={selectedEvent || undefined}
         visible={formVisible}
-        onClose={() => setFormVisible(false)}
+        onClose={() => {
+          setFormVisible(false);
+          setSelectedEvent(null);
+        }}
         onSuccess={() => {
           setFormVisible(false);
+          setSelectedEvent(null);
           if (onRefresh) onRefresh();
         }}
       />

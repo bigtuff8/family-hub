@@ -53,7 +53,7 @@ async def list_calendar_events(
 ):
     """
     Get all calendar events with optional filters.
-    
+
     ⚠️ IMPORTANT: This route MUST be defined BEFORE /events/{event_id}
     Otherwise FastAPI will try to parse 'events' as a UUID parameter.
     """
@@ -62,7 +62,7 @@ async def list_calendar_events(
         query = select(CalendarEvent).options(
             selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
         )
-        
+
         # Add filters if provided
         filters = []
         if tenant_id:
@@ -73,17 +73,17 @@ async def list_calendar_events(
             filters.append(CalendarEvent.start_time >= start_date)
         if end_date:
             filters.append(CalendarEvent.start_time <= end_date)
-        
+
         if filters:
             query = query.where(and_(*filters))
-        
+
         # Order by start time
         query = query.order_by(CalendarEvent.start_time)
-        
+
         # Execute query
         result = await db.execute(query)
         events = result.scalars().all()
-        
+
         # Build response with user information
         response_events = []
         for event in events:
@@ -116,11 +116,11 @@ async def list_calendar_events(
                         "name": user.name,
                         "avatar_url": user.avatar_url
                     }
-            
+
             response_events.append(event_dict)
-        
+
         return response_events
-    
+
     except Exception as e:
         print(f"❌ Error fetching events: {str(e)}")
         import traceback
@@ -146,7 +146,7 @@ async def get_events_by_range(
         # Parse dates
         start = datetime.fromisoformat(start_date)
         end = datetime.fromisoformat(end_date)
-        
+
         # Build query with eager loading of attendees
         query = select(CalendarEvent).options(
             selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)
@@ -156,18 +156,18 @@ async def get_events_by_range(
                 CalendarEvent.start_time <= end
             )
         )
-        
+
         # Add tenant filter if provided
         if tenant_id:
             query = query.where(CalendarEvent.tenant_id == UUID(tenant_id))
-        
+
         # Order by start time
         query = query.order_by(CalendarEvent.start_time)
-        
+
         # Execute query
         result = await db.execute(query)
         events = result.scalars().all()
-        
+
         # Build response with user information
         response_events = []
         for event in events:
@@ -200,11 +200,11 @@ async def get_events_by_range(
                         "name": user.name,
                         "avatar_url": user.avatar_url
                     }
-            
+
             response_events.append(event_dict)
-        
+
         return response_events
-    
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
     except Exception as e:
@@ -230,10 +230,10 @@ async def get_calendar_event(
             ).where(CalendarEvent.id == event_id)
         )
         event = result.scalar_one_or_none()
-        
+
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        
+
         # Build response
         event_dict = {
             "id": str(event.id),
@@ -264,9 +264,9 @@ async def get_calendar_event(
                     "name": user.name,
                     "avatar_url": user.avatar_url
                 }
-        
+
         return event_dict
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -297,7 +297,7 @@ async def create_calendar_event(
             recurrence_rule=event_data.get("recurrence_rule"),
             color=event_data.get("color")
         )
-        
+
         db.add(new_event)
         await db.commit()
         await db.refresh(new_event)
@@ -339,7 +339,7 @@ async def create_calendar_event(
             "updated_at": new_event.updated_at.isoformat() if new_event.updated_at else None,
             "user": None
         }
-        
+
         # Fetch user if user_id exists
         if new_event.user_id:
             user_result = await db.execute(
@@ -352,13 +352,16 @@ async def create_calendar_event(
                     "name": user.name,
                     "avatar_url": user.avatar_url
                 }
-        
 
-        # Add attendees to response
-        event_dict["attendees"] = serialize_attendees(new_event.attendees) if hasattr(new_event, 'attendees') and new_event.attendees else []
+
+        # Add attendees to response - only access relationship if we loaded it
+        if event_data.get("attendees"):
+            event_dict["attendees"] = serialize_attendees(new_event.attendees) if new_event.attendees else []
+        else:
+            event_dict["attendees"] = []
 
         return event_dict
-    
+
     except Exception as e:
         await db.rollback()
         print(f"❌ Error creating event: {str(e)}")
@@ -381,10 +384,10 @@ async def update_calendar_event(
             select(CalendarEvent).where(CalendarEvent.id == event_id)
         )
         event = result.scalar_one_or_none()
-        
+
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        
+
         # Update fields
         if "title" in event_data:
             event.title = event_data["title"]
@@ -404,7 +407,7 @@ async def update_calendar_event(
             event.color = event_data["color"]
         if "user_id" in event_data:
             event.user_id = UUID(event_data["user_id"]) if event_data["user_id"] else None
-        
+
 
         # Process attendees if provided (replace all existing)
         if "attendees" in event_data:
@@ -436,7 +439,7 @@ async def update_calendar_event(
         )
         event = result.scalar_one()
 
-        
+
         # Build response
         event_dict = {
             "id": str(event.id),
@@ -453,7 +456,7 @@ async def update_calendar_event(
             "updated_at": event.updated_at.isoformat() if event.updated_at else None,
             "user": None
         }
-        
+
         # Fetch user if user_id exists
         if event.user_id:
             user_result = await db.execute(
@@ -466,13 +469,13 @@ async def update_calendar_event(
                     "name": user.name,
                     "avatar_url": user.avatar_url
                 }
-        
+
 
         # Add attendees to response
         event_dict["attendees"] = serialize_attendees(event.attendees) if event.attendees else []
 
         return event_dict
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -496,15 +499,15 @@ async def delete_calendar_event(
             select(CalendarEvent).where(CalendarEvent.id == event_id)
         )
         event = result.scalar_one_or_none()
-        
+
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
-        
+
         await db.delete(event)
         await db.commit()
-        
+
         return None
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -525,15 +528,15 @@ async def get_event_attendee(
     """Get a specific attendee for an event."""
     try:
         attendee = await CalendarCRUD.get_attendee(db, tenant_id, event_id, attendee_id)
-        
+
         if not attendee:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail="Event or attendee not found"
             )
-        
+
         return attendee
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -557,21 +560,21 @@ async def update_attendee_rsvp(
     """Update an attendee's RSVP status."""
     try:
         attendee = await CalendarCRUD.update_attendee_rsvp(
-            db, 
-            tenant_id, 
-            event_id, 
-            attendee_id, 
+            db,
+            tenant_id,
+            event_id,
+            attendee_id,
             rsvp_update
         )
-        
+
         if not attendee:
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail="Event or attendee not found"
             )
-        
+
         return attendee
-    
+
     except HTTPException:
         raise
     except Exception as e:

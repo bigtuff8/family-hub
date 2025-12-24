@@ -207,15 +207,18 @@ export default function Calendar() {
         top: 0,
         zIndex: 100,
       }}>
-        <h1 style={{
-          margin: 0,
-          fontSize: 18,
-          fontWeight: 700,
-          background: 'linear-gradient(135deg, #2dd4bf, #fb7185)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-        }}>
+        <h1
+          onClick={() => handleViewTypeChange('dashboard')}
+          style={{
+            margin: 0,
+            fontSize: 18,
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #2dd4bf, #fb7185)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            cursor: 'pointer',
+          }}>
           Family Hub
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

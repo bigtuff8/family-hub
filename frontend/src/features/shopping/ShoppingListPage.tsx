@@ -27,6 +27,7 @@ import { CategoryManagerDrawer } from './CategoryManagerDrawer';
 import { getInitials } from '../../utils/strings';
 import type { ShoppingList, ShoppingItem, ShoppingCategory, RecentlyCompletedDuplicate } from '../../types/shopping';
 import './ShoppingListPage.css';
+import WeatherWidget from '../../components/WeatherWidget';
 
 const { Title, Text } = Typography;
 
@@ -261,13 +262,9 @@ export function ShoppingListPage() {
             <div className="date-main">{dayjs().format('dddd, MMMM D, YYYY')}</div>
             <div className="date-time">{dayjs().format('h:mm A')}</div>
           </div>
-          {/* Temperature tile */}
+          {/* Weather Widget */}
           <div className="header-weather">
-            <span className="weather-icon">☀️</span>
-            <div className="weather-info">
-              <div className="weather-temp">18°C</div>
-              <div className="weather-desc">Sunny</div>
-            </div>
+            <WeatherWidget variant="full" />
           </div>
         </div>
 
