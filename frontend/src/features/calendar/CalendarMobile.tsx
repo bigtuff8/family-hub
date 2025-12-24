@@ -54,6 +54,7 @@ export default function CalendarMobile({
 }: CalendarMobileProps) {
   const [formVisible, setFormVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [showAllToday, setShowAllToday] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const navigate = useNavigate();
   // Parse UTC time and convert to local timezone
@@ -66,6 +67,12 @@ export default function CalendarMobile({
   const todayEvents = events.filter((e) =>
     parseEventTime(e.start_time).isSame(today, "day"),
   );
+
+  // Limit displayed today events to 3 unless expanded
+  const displayedTodayEvents = showAllToday
+    ? todayEvents
+    : todayEvents.slice(0, 3);
+
   const upcomingEvents = events
     .filter((e) => parseEventTime(e.start_time).isAfter(today, "day"))
     .sort((a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix())
@@ -144,9 +151,10 @@ export default function CalendarMobile({
             No events scheduled for today
           </div>
         ) : (
-          <List
-            dataSource={todayEvents}
-            renderItem={(event) => (
+          <>
+            <List
+              dataSource={displayedTodayEvents}
+              renderItem={(event) => (
               <List.Item
                 onClick={() => handleEventClick(event)}
                 style={{
@@ -186,7 +194,34 @@ export default function CalendarMobile({
                 </div>
               </List.Item>
             )}
-          />
+            />
+            {todayEvents.length > 3 && (
+              <div
+                onClick={() => setShowAllToday(!showAllToday)}
+                style={{
+                  textAlign: "center",
+                  padding: "12px 0",
+                  color: "#2dd4bf",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                {showAllToday ? (
+                  <>
+                    <UpOutlined /> Show Less
+                  </>
+                ) : (
+                  <>
+                    <DownOutlined /> Show {todayEvents.length - 3} More
+                  </>
+                )}
+              </div>
+            )}
+          </>
         )}
       </Card>
 
