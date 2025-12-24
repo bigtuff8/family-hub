@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Main contacts page
  * Location: frontend/src/features/contacts/ContactsPage.tsx
  */
@@ -40,6 +40,7 @@ import { contactsApi } from '../../services/contacts';
 import { ContactDrawer } from './ContactDrawer';
 import { getInitials } from '../../utils/strings';
 import type { ContactSummary, Contact, ContactListResponse } from '../../types/contacts';
+import WeatherWidget from '../../components/WeatherWidget';
 import './ContactsPage.css';
 
 const { Title, Text } = Typography;
@@ -197,11 +198,7 @@ export function ContactsPage() {
           </div>
           {/* Temperature tile */}
           <div className="header-weather">
-            <span className="weather-icon">☀️</span>
-            <div className="weather-info">
-              <div className="weather-temp">18°C</div>
-              <div className="weather-desc">Sunny</div>
-            </div>
+            <WeatherWidget variant="full" />
           </div>
         </div>
 

@@ -15,7 +15,6 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { ShoppingSnapshot } from "../shopping";
 import CalendarEventForm from "./CalendarEventForm";
-import WeatherWidget from '../../components/WeatherWidget';
 
 // Enable timezone plugins
 dayjs.extend(utc);
@@ -55,7 +54,6 @@ export default function CalendarMobile({
 }: CalendarMobileProps) {
   const [formVisible, setFormVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [showAllToday, setShowAllToday] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const navigate = useNavigate();
   // Parse UTC time and convert to local timezone
@@ -68,12 +66,6 @@ export default function CalendarMobile({
   const todayEvents = events.filter((e) =>
     parseEventTime(e.start_time).isSame(today, "day"),
   );
-
-  // Limit displayed today events to 3 unless expanded
-  const displayedTodayEvents = showAllToday
-    ? todayEvents
-    : todayEvents.slice(0, 3);
-
   const upcomingEvents = events
     .filter((e) => parseEventTime(e.start_time).isAfter(today, "day"))
     .sort((a, b) => dayjs(a.start_time).unix() - dayjs(b.start_time).unix())
@@ -129,7 +121,9 @@ export default function CalendarMobile({
             </Title>
           </div>
           <div style={{ textAlign: "right" }}>
-            <WeatherWidget variant="full" />
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="5" fill="#FFD93D"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="#FFD93D" strokeWidth="2" strokeLinecap="round"/></svg>
+            <div style={{ fontSize: 24, fontWeight: 600 }}>18°C</div>
+            <div style={{ fontSize: 12, opacity: 0.9 }}>Sunny</div>
           </div>
         </div>
       </Card>
@@ -150,10 +144,9 @@ export default function CalendarMobile({
             No events scheduled for today
           </div>
         ) : (
-          <>
-            <List
-              dataSource={displayedTodayEvents}
-              renderItem={(event) => (
+          <List
+            dataSource={todayEvents}
+            renderItem={(event) => (
               <List.Item
                 onClick={() => handleEventClick(event)}
                 style={{
@@ -193,34 +186,7 @@ export default function CalendarMobile({
                 </div>
               </List.Item>
             )}
-            />
-            {todayEvents.length > 3 && (
-              <div
-                onClick={() => setShowAllToday(!showAllToday)}
-                style={{
-                  textAlign: "center",
-                  padding: "12px 0",
-                  color: "#2dd4bf",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                {showAllToday ? (
-                  <>
-                    <UpOutlined /> Show Less
-                  </>
-                ) : (
-                  <>
-                    <DownOutlined /> Show {todayEvents.length - 3} More
-                  </>
-                )}
-              </div>
-            )}
-          </>
+          />
         )}
       </Card>
 
