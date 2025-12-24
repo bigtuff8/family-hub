@@ -206,6 +206,7 @@
 
   .contacts-header-full .header-left {
     width: 100%;
+    padding-right: 60px; /* Make room for absolute-positioned avatar */
   }
 
   .contacts-header-full .header-center {
