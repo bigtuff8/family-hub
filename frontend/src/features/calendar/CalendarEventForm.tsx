@@ -132,9 +132,9 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [recurrenceCount, setRecurrenceCount] = useState<number>(10);
 
   // Helper function to update end date/time based on start date/time
-  const updateEndDateTime = () => {
-    const startDate = form.getFieldValue('startDate');
-    const startTime = form.getFieldValue('startTime');
+  const updateEndDateTime = (newStartDate?: Dayjs | null, newStartTime?: Dayjs | null) => {
+    const startDate = newStartDate ?? form.getFieldValue('startDate');
+    const startTime = newStartTime ?? form.getFieldValue('startTime');
     
     if (startDate && startTime) {
       // Combine start date with start time
@@ -150,6 +150,11 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
       form.setFieldsValue({ 
         endDate: newEndDateTime,
         endTime: newEndDateTime 
+      });
+    } else if (startDate && !startTime) {
+      // Date-only change (all-day event or time not yet set) - sync end date to start date
+      form.setFieldsValue({
+        endDate: startDate
       });
     }
   };
@@ -621,7 +626,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
             <DatePicker 
               style={{ width: '100%' }} 
               format="DD/MM/YYYY"
-              onChange={() => updateEndDateTime()}
+              onChange={(date) => updateEndDateTime(date, null)}
             />
           </Form.Item>
 
@@ -636,7 +641,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
                 style={{ width: '100%' }} 
                 format="HH:mm" 
                 minuteStep={15}
-                onChange={() => updateEndDateTime()}
+                onChange={(time) => updateEndDateTime(null, time)}
               />
             </Form.Item>
           )}
