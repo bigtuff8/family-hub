@@ -3,7 +3,7 @@
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
 **Start Date:** October 2025
 **Current Phase:** Phase 2 - Integration & Sync
-**Last Updated:** December 23, 2025
+**Last Updated:** December 24, 2025
 
 ---
 
@@ -407,6 +407,28 @@ Major decisions that will affect roadmap:
 
 ---
 
+## Backlog (Unprioritized)
+
+Features and improvements identified but not yet scheduled into a phase.
+
+### User Experience
+
+- [ ] **Per-user Address Book** - Contacts should be unique to each user, not shared across all family members. Currently contacts are tenant-wide.
+
+- [ ] **Weather Widget Enhancement** - Click weather widget to see detailed forecast:
+  - Hourly conditions, temperature, precipitation
+  - Multi-day forecast with scroll
+  - Location selector for checking weather elsewhere
+  - *Preference: Link to external weather app (e.g., open native weather app or direct to app store) rather than building custom UI*
+
+- [ ] **Weather Lookup for Events** - When creating events, ability to see weather forecast for the event date/location to help with planning.
+
+### Technical Improvements
+
+- [ ] **Move project files from OneDrive to local storage** - Eliminate OneDrive sync issues that cause file modification conflicts during development. With GitHub + Pi deployment, OneDrive storage is no longer necessary.
+
+---
+
 ## Related Documents
 
 - `docs/technical-debt.md` - Active technical debt tracking
@@ -416,7 +438,7 @@ Major decisions that will affect roadmap:
 
 ---
 
-**Document Version:** 3.0
-**Last Updated:** December 23, 2025
+**Document Version:** 3.1
+**Last Updated:** December 24, 2025
 **Next Review:** Phase 2 completion (Integration & Sync)
 **Owner:** James Brown
