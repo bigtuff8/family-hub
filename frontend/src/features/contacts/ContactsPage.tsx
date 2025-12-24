@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Main contacts page
  * Location: frontend/src/features/contacts/ContactsPage.tsx
  */
@@ -161,8 +161,8 @@ export function ContactsPage() {
     },
   ];
 
-  // Get initials for avatar
-  const getInitials = (contact: ContactSummary): string => {
+  // Get initials for contact avatar
+  const getContactInitials = (contact: ContactSummary): string => {
     const first = contact.first_name?.[0] || '';
     const last = contact.last_name?.[0] || '';
     return (first + last).toUpperCase() || '?';
@@ -319,7 +319,7 @@ export function ContactsPage() {
                         <Avatar src={contact.photo_url} size={48} />
                       ) : (
                         <Avatar size={48} style={{ backgroundColor: '#1890ff' }}>
-                          {getInitials(contact)}
+                          {getContactInitials(contact)}
                         </Avatar>
                       )
                     }
