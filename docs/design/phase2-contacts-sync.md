@@ -1,185 +1,166 @@
-# Contacts + Address Book Sync - Design Document
+# Contacts Sync - Design Document
 
-**Feature:** 2.1 Contacts + Address Book Sync
+**Feature:** 2.3 Contacts Sync
 **Phase:** 2 - Integration & Sync
 **Status:** Design Complete
 **Created:** December 22, 2025
+**Updated:** December 27, 2025
 
 ---
 
 ## Overview
 
-External contacts system for storing non-user contacts (grandparents, friends, extended family) with sync capabilities from iCloud and Google Contacts.
+Two-way contact synchronization with Google Contacts, iCloud Contacts, and Outlook Contacts. Family members stored in Family Hub sync TO external contact providers, and external contacts sync INTO Family Hub's Family Directory for a unified view.
 
 ### Key Requirements
-- Pull-only sync (read from providers, don't push back)
-- iCloud priority, then Google (Yahoo excluded)
-- Duplicate detection with user-controlled merge
-- Birthday tracking
-- Contact management UI
+- Two-way sync (bidirectional) - matching calendar sync approach
+- Shared OAuth credentials with Calendar Sync (same provider connection)
+- Unified Family Directory view across providers
+- Conflict detection with merge capabilities
+- Support Google, iCloud, Outlook
+- Auto-link synced contacts to family members
+- Birthday tracking integration
+
+### Relationship to Calendar Sync
+Contacts sync shares the same provider connections as Calendar sync:
+- **Google:** Same OAuth token, adds People API scope
+- **iCloud:** Same Apple ID/app password, uses CardDAV
+- **Outlook:** Same Microsoft token, adds Contacts.ReadWrite scope
 
 ---
 
 ## Database Models
 
-### Contact Table
+### ExternalContactProvider Table
 ```sql
-CREATE TABLE contacts (
+CREATE TABLE external_contact_providers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    -- Core fields
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100),
-    display_name VARCHAR(200),  -- Computed or custom
-    nickname VARCHAR(100),
+    -- Provider info (links to calendar OAuth when possible)
+    provider VARCHAR(50) NOT NULL,  -- 'google', 'icloud', 'outlook'
+    external_calendar_id UUID REFERENCES external_calendars(id),  -- Shared OAuth
 
-    -- Contact info (primary)
-    primary_email VARCHAR(255),
-    primary_phone VARCHAR(50),
+    -- Standalone credentials (if no calendar connected)
+    access_token_encrypted TEXT,
+    refresh_token_encrypted TEXT,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
 
-    -- Important dates
-    birthday DATE,
-    anniversary DATE,
+    -- iCloud specific (shared with calendar)
+    carddav_url TEXT,
 
-    -- Address
-    address_line1 VARCHAR(255),
-    address_line2 VARCHAR(255),
-    city VARCHAR(100),
-    county VARCHAR(100),
-    postcode VARCHAR(20),
-    country VARCHAR(100) DEFAULT 'United Kingdom',
-
-    -- Organization
-    company VARCHAR(200),
-    job_title VARCHAR(200),
-
-    -- Notes and metadata
-    notes TEXT,
-    photo_url VARCHAR(500),
-
-    -- Sync tracking
-    external_source VARCHAR(50),  -- 'icloud', 'google', 'manual'
-    external_id VARCHAR(255),     -- Provider's unique ID
-    last_synced_at TIMESTAMP WITH TIME ZONE,
-    sync_etag VARCHAR(255),       -- For change detection
-
-    -- Status
-    is_favorite BOOLEAN DEFAULT FALSE,
-    is_archived BOOLEAN DEFAULT FALSE,
+    -- Settings
+    sync_direction VARCHAR(20) DEFAULT 'bidirectional',
+    is_active BOOLEAN DEFAULT TRUE,
+    auto_link_family BOOLEAN DEFAULT TRUE,  -- Auto-link synced contacts to family members
 
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    UNIQUE(tenant_id, external_source, external_id)
+    UNIQUE(tenant_id, provider)
 );
 
-CREATE INDEX idx_contacts_tenant ON contacts(tenant_id);
-CREATE INDEX idx_contacts_name ON contacts(tenant_id, last_name, first_name);
-CREATE INDEX idx_contacts_birthday ON contacts(tenant_id, birthday);
-CREATE INDEX idx_contacts_external ON contacts(external_source, external_id);
+CREATE INDEX idx_contact_providers_tenant ON external_contact_providers(tenant_id);
 ```
 
-### ContactPhone Table (Multiple phones per contact)
+### ContactSyncState Table
 ```sql
-CREATE TABLE contact_phones (
+CREATE TABLE contact_sync_states (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-    phone_type VARCHAR(50) DEFAULT 'mobile',  -- mobile, home, work, other
-    phone_number VARCHAR(50) NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+    external_provider_id UUID NOT NULL REFERENCES external_contact_providers(id) ON DELETE CASCADE,
 
-CREATE INDEX idx_contact_phones_contact ON contact_phones(contact_id);
-```
-
-### ContactEmail Table (Multiple emails per contact)
-```sql
-CREATE TABLE contact_emails (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-    email_type VARCHAR(50) DEFAULT 'personal',  -- personal, work, other
-    email_address VARCHAR(255) NOT NULL,
-    is_primary BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_contact_emails_contact ON contact_emails(contact_id);
-```
-
-### ContactRelationship Table (Link contacts to family members)
-```sql
-CREATE TABLE contact_relationships (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,  -- Family member
-    related_contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-    relationship_type VARCHAR(50) NOT NULL,  -- grandparent, aunt, uncle, cousin, friend, etc.
-    relationship_label VARCHAR(100),  -- Custom label like "Tommy's Godfather"
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    UNIQUE(contact_id, user_id, relationship_type),
-    CHECK (user_id IS NOT NULL OR related_contact_id IS NOT NULL)
-);
-```
-
-### ExternalContactSource Table (OAuth credentials per provider)
-```sql
-CREATE TABLE external_contact_sources (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
-    provider VARCHAR(50) NOT NULL,  -- 'icloud', 'google'
-    account_email VARCHAR(255),
-
-    -- OAuth tokens (encrypted)
-    access_token_encrypted TEXT,
-    refresh_token_encrypted TEXT,
-    token_expires_at TIMESTAMP WITH TIME ZONE,
-
-    -- iCloud specific
-    icloud_app_password_encrypted TEXT,
-
-    -- Sync state
-    is_active BOOLEAN DEFAULT TRUE,
+    -- Sync tracking
     last_sync_at TIMESTAMP WITH TIME ZONE,
     last_sync_status VARCHAR(50),  -- 'success', 'failed', 'partial'
     last_sync_error TEXT,
-    sync_cursor TEXT,  -- For incremental sync
+
+    -- Incremental sync tokens
+    sync_token TEXT,      -- Google People API sync token
+    ctag TEXT,            -- CardDAV ctag
+    delta_link TEXT,      -- Microsoft Graph delta link
+
+    -- Stats
+    contacts_synced INTEGER DEFAULT 0,
+    contacts_created INTEGER DEFAULT 0,
+    contacts_updated INTEGER DEFAULT 0,
+    contacts_deleted INTEGER DEFAULT 0,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### ExternalContact Table
+```sql
+CREATE TABLE external_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    external_provider_id UUID NOT NULL REFERENCES external_contact_providers(id) ON DELETE CASCADE,
+
+    -- External reference
+    external_contact_id VARCHAR(255) NOT NULL,  -- Provider's contact ID
+    external_etag VARCHAR(255),
+
+    -- Contact data (denormalized for display)
+    display_name VARCHAR(255),
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email_primary VARCHAR(255),
+    phone_primary VARCHAR(50),
+    photo_url TEXT,
+
+    -- Full contact data
+    contact_data JSONB,  -- Complete contact record from provider
+
+    -- Family Hub linking
+    family_member_id UUID REFERENCES family_members(id) ON DELETE SET NULL,
+    link_status VARCHAR(50) DEFAULT 'unlinked',  -- 'unlinked', 'auto_linked', 'manual_linked', 'ignored'
+
+    -- Sync metadata
+    last_synced_at TIMESTAMP WITH TIME ZONE,
+    sync_direction VARCHAR(20),  -- 'from_external', 'to_external'
+    is_deleted BOOLEAN DEFAULT FALSE,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    UNIQUE(tenant_id, user_id, provider)
+    UNIQUE(external_provider_id, external_contact_id)
 );
+
+CREATE INDEX idx_external_contacts_tenant ON external_contacts(tenant_id);
+CREATE INDEX idx_external_contacts_provider ON external_contacts(external_provider_id);
+CREATE INDEX idx_external_contacts_family_member ON external_contacts(family_member_id);
+CREATE INDEX idx_external_contacts_email ON external_contacts(email_primary);
 ```
 
-### PendingContactMerge Table (Duplicate detection queue)
+### ContactConflict Table
 ```sql
-CREATE TABLE pending_contact_merges (
+CREATE TABLE contact_conflicts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
-    existing_contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-    incoming_contact_data JSONB NOT NULL,  -- Full contact data from sync
-    incoming_source VARCHAR(50) NOT NULL,
-    incoming_external_id VARCHAR(255),
+    -- Conflicting contacts
+    external_contact_id UUID REFERENCES external_contacts(id) ON DELETE CASCADE,
+    family_member_id UUID REFERENCES family_members(id) ON DELETE SET NULL,
 
-    match_score DECIMAL(5,2),  -- 0-100 confidence
-    match_reasons TEXT[],  -- ['same_email', 'similar_name', 'same_phone']
+    -- Conflict details
+    conflict_type VARCHAR(50) NOT NULL,  -- 'field_mismatch', 'duplicate_detected', 'update_conflict'
+    conflicting_fields JSONB,  -- ['email', 'phone', 'name']
+    local_data JSONB,
+    external_data JSONB,
 
-    status VARCHAR(50) DEFAULT 'pending',  -- pending, merged, skipped, kept_both
+    -- Resolution
+    status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'resolved_local', 'resolved_external', 'merged', 'ignored'
     resolved_at TIMESTAMP WITH TIME ZONE,
     resolved_by UUID REFERENCES users(id),
+    resolution_notes TEXT,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_pending_merges_tenant ON pending_contact_merges(tenant_id, status);
+CREATE INDEX idx_contact_conflicts_tenant ON contact_conflicts(tenant_id, status);
 ```
 
 ---
@@ -188,121 +169,121 @@ CREATE INDEX idx_pending_merges_tenant ON pending_contact_merges(tenant_id, stat
 
 ### Directory Structure
 ```
-backend/services/contacts/
+backend/services/contacts_sync/
 ├── __init__.py
 ├── routes.py           # API endpoints
 ├── schemas.py          # Pydantic models
 ├── crud.py             # Database operations
-├── sync/
+├── engine.py           # Main sync orchestrator
+├── matcher.py          # Contact-to-FamilyMember matching
+├── providers/
 │   ├── __init__.py
-│   ├── base.py         # Abstract sync provider
-│   ├── icloud.py       # iCloud CardDAV sync
-│   ├── google.py       # Google People API sync
-│   └── merger.py       # Duplicate detection/merge logic
-└── utils.py            # Helper functions
+│   ├── base.py         # Abstract provider interface
+│   ├── google.py       # Google People API
+│   ├── icloud.py       # iCloud CardDAV
+│   └── outlook.py      # Microsoft Graph API
+├── conflict.py         # Conflict detection/resolution
+└── utils.py            # vCard parsing, phone normalization
 ```
 
 ### Provider Abstraction
 ```python
-# backend/services/contacts/sync/base.py
+# backend/services/contacts_sync/providers/base.py
 from abc import ABC, abstractmethod
-from typing import List
-from ..schemas import ContactSyncData
+from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel
 
-class ContactSyncProvider(ABC):
-    """Base class for contact sync providers."""
+class Contact(BaseModel):
+    """Normalized contact format across providers."""
+    id: str
+    display_name: str
+    first_name: Optional[str]
+    last_name: Optional[str]
+    nickname: Optional[str]
+
+    # Contact methods
+    emails: List[dict]  # [{'type': 'home', 'value': 'x@y.com', 'primary': True}]
+    phones: List[dict]  # [{'type': 'mobile', 'value': '+447...', 'primary': True}]
+
+    # Address
+    addresses: List[dict]
+
+    # Personal
+    birthday: Optional[str]  # ISO date string
+    anniversary: Optional[str]
+
+    # Organization
+    organization: Optional[str]
+    job_title: Optional[str]
+
+    # Other
+    notes: Optional[str]
+    photo_url: Optional[str]
+
+    # Metadata
+    etag: Optional[str]
+    updated_at: Optional[datetime]
+
+class ContactsSyncProvider(ABC):
+    """Base class for contacts sync providers."""
 
     @abstractmethod
     async def authenticate(self, credentials: dict) -> bool:
-        """Validate credentials and establish connection."""
+        """Validate credentials."""
         pass
 
     @abstractmethod
-    async def fetch_contacts(self, since: datetime = None) -> List[ContactSyncData]:
-        """Fetch contacts from provider. If since provided, fetch only changes."""
+    async def fetch_contacts(
+        self,
+        sync_token: str = None,
+        page_token: str = None
+    ) -> tuple[List[Contact], str, str]:
+        """
+        Fetch contacts with incremental sync.
+        Returns (contacts, new_sync_token, next_page_token).
+        """
         pass
 
     @abstractmethod
-    async def test_connection(self) -> bool:
-        """Test if credentials are still valid."""
+    async def get_contact(self, contact_id: str) -> Contact:
+        """Get single contact by ID."""
+        pass
+
+    @abstractmethod
+    async def create_contact(self, contact: Contact) -> str:
+        """Create contact, return external ID."""
+        pass
+
+    @abstractmethod
+    async def update_contact(self, contact_id: str, contact: Contact) -> bool:
+        """Update existing contact."""
+        pass
+
+    @abstractmethod
+    async def delete_contact(self, contact_id: str) -> bool:
+        """Delete contact."""
+        pass
+
+    @abstractmethod
+    async def get_contact_photo(self, contact_id: str) -> bytes:
+        """Get contact photo."""
         pass
 ```
 
-### iCloud Implementation
+### Google Contacts Implementation
 ```python
-# backend/services/contacts/sync/icloud.py
-import aiohttp
-from typing import List
-import vobject  # For parsing vCard format
-
-class ICloudContactSync(ContactSyncProvider):
-    """
-    iCloud contacts sync via CardDAV.
-    Uses app-specific password (not OAuth).
-    """
-
-    CARDDAV_URL = "https://contacts.icloud.com"
-
-    def __init__(self, apple_id: str, app_password: str):
-        self.apple_id = apple_id
-        self.app_password = app_password
-
-    async def authenticate(self, credentials: dict) -> bool:
-        """Test iCloud credentials via CardDAV PROPFIND."""
-        async with aiohttp.ClientSession() as session:
-            auth = aiohttp.BasicAuth(self.apple_id, self.app_password)
-            async with session.request(
-                'PROPFIND',
-                f"{self.CARDDAV_URL}/",
-                auth=auth,
-                headers={'Depth': '0'}
-            ) as response:
-                return response.status == 207
-
-    async def fetch_contacts(self, since: datetime = None) -> List[ContactSyncData]:
-        """Fetch all contacts via CardDAV REPORT request."""
-        contacts = []
-
-        # 1. Get address book URL
-        addressbook_url = await self._get_addressbook_url()
-
-        # 2. Fetch all vCards
-        vcards = await self._fetch_vcards(addressbook_url)
-
-        # 3. Parse vCards into ContactSyncData
-        for vcard_data, etag, href in vcards:
-            contact = self._parse_vcard(vcard_data)
-            contact.external_id = href
-            contact.sync_etag = etag
-            contacts.append(contact)
-
-        return contacts
-
-    def _parse_vcard(self, vcard_str: str) -> ContactSyncData:
-        """Parse vCard 3.0/4.0 into ContactSyncData."""
-        vcard = vobject.readOne(vcard_str)
-
-        return ContactSyncData(
-            first_name=vcard.n.value.given if hasattr(vcard, 'n') else '',
-            last_name=vcard.n.value.family if hasattr(vcard, 'n') else '',
-            emails=self._extract_emails(vcard),
-            phones=self._extract_phones(vcard),
-            birthday=self._extract_birthday(vcard),
-            # ... other fields
-        )
-```
-
-### Google Implementation
-```python
-# backend/services/contacts/sync/google.py
+# backend/services/contacts_sync/providers/google.py
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-class GoogleContactSync(ContactSyncProvider):
-    """
-    Google Contacts sync via People API.
-    Uses OAuth 2.0.
-    """
+class GoogleContactsSync(ContactsSyncProvider):
+    """Google Contacts sync via People API."""
+
+    SCOPES = [
+        'https://www.googleapis.com/auth/contacts',
+        'https://www.googleapis.com/auth/contacts.other.readonly'
+    ]
 
     def __init__(self, access_token: str, refresh_token: str):
         self.credentials = Credentials(
@@ -312,142 +293,789 @@ class GoogleContactSync(ContactSyncProvider):
             client_id=settings.GOOGLE_CLIENT_ID,
             client_secret=settings.GOOGLE_CLIENT_SECRET
         )
+        self.service = build('people', 'v1', credentials=self.credentials)
 
-    async def fetch_contacts(self, since: datetime = None) -> List[ContactSyncData]:
-        """Fetch contacts via Google People API."""
-        service = build('people', 'v1', credentials=self.credentials)
+    async def fetch_contacts(
+        self,
+        sync_token: str = None,
+        page_token: str = None
+    ) -> tuple[List[Contact], str, str]:
+        """Fetch contacts with sync token support."""
 
-        contacts = []
-        page_token = None
+        person_fields = 'names,emailAddresses,phoneNumbers,addresses,birthdays,organizations,photos,metadata'
 
-        while True:
-            results = service.people().connections().list(
+        if sync_token:
+            # Incremental sync
+            result = self.service.people().connections().list(
                 resourceName='people/me',
-                pageSize=100,
+                personFields=person_fields,
+                syncToken=sync_token,
                 pageToken=page_token,
-                personFields='names,emailAddresses,phoneNumbers,birthdays,addresses,organizations,photos'
+                pageSize=100
+            ).execute()
+        else:
+            # Full sync
+            result = self.service.people().connections().list(
+                resourceName='people/me',
+                personFields=person_fields,
+                pageToken=page_token,
+                pageSize=100,
+                requestSyncToken=True
             ).execute()
 
-            for person in results.get('connections', []):
-                contacts.append(self._parse_person(person))
+        contacts = []
+        for person in result.get('connections', []):
+            contacts.append(self._parse_person(person))
 
-            page_token = results.get('nextPageToken')
-            if not page_token:
-                break
+        new_sync_token = result.get('nextSyncToken')
+        next_page_token = result.get('nextPageToken')
 
-        return contacts
+        return contacts, new_sync_token, next_page_token
+
+    async def create_contact(self, contact: Contact) -> str:
+        """Create contact in Google."""
+        body = self._to_google_person(contact)
+        result = self.service.people().createContact(body=body).execute()
+        return result['resourceName']
+
+    async def update_contact(self, contact_id: str, contact: Contact) -> bool:
+        """Update contact in Google."""
+        # First get current etag
+        current = self.service.people().get(
+            resourceName=contact_id,
+            personFields='metadata'
+        ).execute()
+
+        body = self._to_google_person(contact)
+        body['etag'] = current['etag']
+
+        self.service.people().updateContact(
+            resourceName=contact_id,
+            updatePersonFields='names,emailAddresses,phoneNumbers,addresses,birthdays,organizations',
+            body=body
+        ).execute()
+        return True
+
+    async def delete_contact(self, contact_id: str) -> bool:
+        """Delete contact from Google."""
+        self.service.people().deleteContact(resourceName=contact_id).execute()
+        return True
+
+    def _parse_person(self, person: dict) -> Contact:
+        """Parse Google Person to Contact."""
+        names = person.get('names', [{}])[0]
+        emails = [
+            {
+                'type': e.get('type', 'other'),
+                'value': e.get('value'),
+                'primary': e.get('metadata', {}).get('primary', False)
+            }
+            for e in person.get('emailAddresses', [])
+        ]
+        phones = [
+            {
+                'type': p.get('type', 'other'),
+                'value': p.get('value'),
+                'primary': p.get('metadata', {}).get('primary', False)
+            }
+            for p in person.get('phoneNumbers', [])
+        ]
+
+        birthday = None
+        if person.get('birthdays'):
+            bday = person['birthdays'][0].get('date', {})
+            if bday.get('month') and bday.get('day'):
+                year = bday.get('year', 1900)
+                birthday = f"{year:04d}-{bday['month']:02d}-{bday['day']:02d}"
+
+        photo_url = None
+        if person.get('photos'):
+            photo_url = person['photos'][0].get('url')
+
+        org = person.get('organizations', [{}])[0]
+
+        return Contact(
+            id=person['resourceName'],
+            display_name=names.get('displayName', 'Unknown'),
+            first_name=names.get('givenName'),
+            last_name=names.get('familyName'),
+            nickname=names.get('nickname'),
+            emails=emails,
+            phones=phones,
+            addresses=[
+                {
+                    'type': a.get('type', 'other'),
+                    'formatted': a.get('formattedValue'),
+                    'street': a.get('streetAddress'),
+                    'city': a.get('city'),
+                    'region': a.get('region'),
+                    'postal_code': a.get('postalCode'),
+                    'country': a.get('country')
+                }
+                for a in person.get('addresses', [])
+            ],
+            birthday=birthday,
+            organization=org.get('name'),
+            job_title=org.get('title'),
+            notes=person.get('biographies', [{}])[0].get('value'),
+            photo_url=photo_url,
+            etag=person.get('etag'),
+            updated_at=person.get('metadata', {}).get('sources', [{}])[0].get('updateTime')
+        )
+
+    def _to_google_person(self, contact: Contact) -> dict:
+        """Convert Contact to Google Person format."""
+        person = {
+            'names': [{
+                'givenName': contact.first_name,
+                'familyName': contact.last_name,
+                'displayName': contact.display_name
+            }],
+            'emailAddresses': [
+                {'value': e['value'], 'type': e.get('type', 'other')}
+                for e in contact.emails
+            ],
+            'phoneNumbers': [
+                {'value': p['value'], 'type': p.get('type', 'other')}
+                for p in contact.phones
+            ],
+            'addresses': [
+                {
+                    'type': a.get('type', 'other'),
+                    'streetAddress': a.get('street'),
+                    'city': a.get('city'),
+                    'region': a.get('region'),
+                    'postalCode': a.get('postal_code'),
+                    'country': a.get('country')
+                }
+                for a in contact.addresses
+            ]
+        }
+
+        if contact.birthday:
+            parts = contact.birthday.split('-')
+            person['birthdays'] = [{
+                'date': {
+                    'year': int(parts[0]) if int(parts[0]) != 1900 else None,
+                    'month': int(parts[1]),
+                    'day': int(parts[2])
+                }
+            }]
+
+        if contact.organization or contact.job_title:
+            person['organizations'] = [{
+                'name': contact.organization,
+                'title': contact.job_title
+            }]
+
+        return person
 ```
 
-### Duplicate Detection
+### iCloud CardDAV Implementation
 ```python
-# backend/services/contacts/sync/merger.py
-from difflib import SequenceMatcher
-from typing import Tuple, List
+# backend/services/contacts_sync/providers/icloud.py
+import vobject
+import aiohttp
+from xml.etree import ElementTree as ET
 
-class ContactMerger:
-    """Handles duplicate detection and merge logic."""
+class ICloudContactsSync(ContactsSyncProvider):
+    """iCloud Contacts sync via CardDAV."""
 
-    MATCH_THRESHOLD = 70  # Minimum score to consider a match
+    CARDDAV_URL = "https://contacts.icloud.com"
 
-    def find_duplicates(
+    def __init__(self, apple_id: str, app_password: str):
+        self.apple_id = apple_id
+        self.app_password = app_password
+        self.auth = aiohttp.BasicAuth(apple_id, app_password)
+
+    async def _get_addressbook_url(self) -> str:
+        """Get user's addressbook URL via principal discovery."""
+        async with aiohttp.ClientSession() as session:
+            # PROPFIND to get principal
+            body = '''<?xml version="1.0"?>
+            <d:propfind xmlns:d="DAV:">
+                <d:prop>
+                    <d:current-user-principal/>
+                </d:prop>
+            </d:propfind>'''
+
+            async with session.request(
+                'PROPFIND',
+                f"{self.CARDDAV_URL}/",
+                auth=self.auth,
+                data=body,
+                headers={'Depth': '0', 'Content-Type': 'application/xml'}
+            ) as response:
+                # Parse and extract addressbook home
+                pass
+
+    async def fetch_contacts(
         self,
-        incoming: ContactSyncData,
-        existing: List[Contact]
-    ) -> List[Tuple[Contact, float, List[str]]]:
-        """
-        Find potential duplicates for incoming contact.
-        Returns list of (contact, score, reasons) tuples.
-        """
-        matches = []
+        sync_token: str = None,
+        page_token: str = None
+    ) -> tuple[List[Contact], str, str]:
+        """Fetch contacts from iCloud."""
+        async with aiohttp.ClientSession() as session:
+            # Get ctag for change detection
+            props_body = '''<?xml version="1.0"?>
+            <d:propfind xmlns:d="DAV:" xmlns:cs="http://calendarserver.org/ns/">
+                <d:prop>
+                    <cs:getctag/>
+                </d:prop>
+            </d:propfind>'''
 
-        for contact in existing:
-            score, reasons = self._calculate_match_score(incoming, contact)
-            if score >= self.MATCH_THRESHOLD:
-                matches.append((contact, score, reasons))
+            # REPORT for all vcards
+            report_body = '''<?xml version="1.0"?>
+            <card:addressbook-query xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
+                <d:prop>
+                    <d:getetag/>
+                    <card:address-data/>
+                </d:prop>
+            </card:addressbook-query>'''
 
-        return sorted(matches, key=lambda x: x[1], reverse=True)
+            addressbook_url = await self._get_addressbook_url()
+
+            async with session.request(
+                'REPORT',
+                addressbook_url,
+                auth=self.auth,
+                data=report_body,
+                headers={'Depth': '1', 'Content-Type': 'application/xml'}
+            ) as response:
+                content = await response.text()
+                contacts = self._parse_carddav_response(content)
+
+                # Get new ctag
+                async with session.request(
+                    'PROPFIND',
+                    addressbook_url,
+                    auth=self.auth,
+                    data=props_body,
+                    headers={'Depth': '0', 'Content-Type': 'application/xml'}
+                ) as props_response:
+                    props_content = await props_response.text()
+                    new_ctag = self._extract_ctag(props_content)
+
+                return contacts, new_ctag, None
+
+    def _parse_vcard(self, vcard_data: str, href: str, etag: str) -> Contact:
+        """Parse vCard to Contact."""
+        vcard = vobject.readOne(vcard_data)
+
+        # Extract name
+        first_name = None
+        last_name = None
+        display_name = 'Unknown'
+
+        if hasattr(vcard, 'n'):
+            first_name = vcard.n.value.given
+            last_name = vcard.n.value.family
+
+        if hasattr(vcard, 'fn'):
+            display_name = vcard.fn.value
+
+        # Extract emails
+        emails = []
+        if hasattr(vcard, 'email_list'):
+            for email in vcard.email_list:
+                email_type = email.params.get('TYPE', ['other'])[0].lower()
+                emails.append({
+                    'type': email_type,
+                    'value': email.value,
+                    'primary': len(emails) == 0
+                })
+
+        # Extract phones
+        phones = []
+        if hasattr(vcard, 'tel_list'):
+            for tel in vcard.tel_list:
+                phone_type = tel.params.get('TYPE', ['other'])[0].lower()
+                phones.append({
+                    'type': phone_type,
+                    'value': tel.value,
+                    'primary': len(phones) == 0
+                })
+
+        # Extract birthday
+        birthday = None
+        if hasattr(vcard, 'bday'):
+            birthday = str(vcard.bday.value)
+
+        return Contact(
+            id=href,
+            display_name=display_name,
+            first_name=first_name,
+            last_name=last_name,
+            emails=emails,
+            phones=phones,
+            addresses=[],
+            birthday=birthday,
+            etag=etag
+        )
+
+    async def create_contact(self, contact: Contact) -> str:
+        """Create contact in iCloud via PUT."""
+        vcard = self._to_vcard(contact)
+        uid = str(uuid.uuid4())
+        href = f"{await self._get_addressbook_url()}/{uid}.vcf"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.put(
+                href,
+                auth=self.auth,
+                data=vcard.serialize(),
+                headers={'Content-Type': 'text/vcard'}
+            ) as response:
+                if response.status in (201, 204):
+                    return href
+                raise Exception(f"Failed to create contact: {response.status}")
+
+        return href
+```
+
+### Outlook/Microsoft Graph Implementation
+```python
+# backend/services/contacts_sync/providers/outlook.py
+import aiohttp
+
+class OutlookContactsSync(ContactsSyncProvider):
+    """Outlook Contacts sync via Microsoft Graph API."""
+
+    GRAPH_URL = "https://graph.microsoft.com/v1.0"
+    SCOPES = ['Contacts.ReadWrite']
+
+    def __init__(self, access_token: str, refresh_token: str):
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+
+    async def fetch_contacts(
+        self,
+        sync_token: str = None,
+        page_token: str = None
+    ) -> tuple[List[Contact], str, str]:
+        """Fetch contacts via delta query for incremental sync."""
+        async with aiohttp.ClientSession() as session:
+            headers = {'Authorization': f'Bearer {self.access_token}'}
+
+            if sync_token:
+                url = sync_token  # Delta link is the full URL
+            else:
+                url = f"{self.GRAPH_URL}/me/contacts/delta"
+                url += "?$select=givenName,surname,displayName,emailAddresses,mobilePhone,homePhones,businessPhones,birthday,companyName,jobTitle,homeAddress,businessAddress"
+
+            if page_token:
+                url = page_token
+
+            contacts = []
+            async with session.get(url, headers=headers) as response:
+                data = await response.json()
+
+                for item in data.get('value', []):
+                    if '@removed' in item:
+                        # Handle deleted contacts
+                        contacts.append(Contact(
+                            id=item['id'],
+                            display_name='DELETED',
+                            emails=[],
+                            phones=[],
+                            addresses=[],
+                            is_deleted=True
+                        ))
+                    else:
+                        contacts.append(self._parse_contact(item))
+
+                next_page = data.get('@odata.nextLink')
+                delta_link = data.get('@odata.deltaLink')
+
+            return contacts, delta_link, next_page
+
+    async def create_contact(self, contact: Contact) -> str:
+        """Create contact in Outlook."""
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            body = self._to_outlook_contact(contact)
+
+            async with session.post(
+                f"{self.GRAPH_URL}/me/contacts",
+                headers=headers,
+                json=body
+            ) as response:
+                data = await response.json()
+                return data['id']
+
+    async def update_contact(self, contact_id: str, contact: Contact) -> bool:
+        """Update contact in Outlook."""
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Content-Type': 'application/json'
+            }
+            body = self._to_outlook_contact(contact)
+
+            async with session.patch(
+                f"{self.GRAPH_URL}/me/contacts/{contact_id}",
+                headers=headers,
+                json=body
+            ) as response:
+                return response.status == 200
+
+    def _parse_contact(self, item: dict) -> Contact:
+        """Parse Outlook contact to Contact."""
+        emails = [
+            {
+                'type': e.get('name', 'other'),
+                'value': e.get('address'),
+                'primary': idx == 0
+            }
+            for idx, e in enumerate(item.get('emailAddresses', []))
+        ]
+
+        phones = []
+        if item.get('mobilePhone'):
+            phones.append({'type': 'mobile', 'value': item['mobilePhone'], 'primary': True})
+        for hp in item.get('homePhones', []):
+            phones.append({'type': 'home', 'value': hp, 'primary': len(phones) == 0})
+        for bp in item.get('businessPhones', []):
+            phones.append({'type': 'work', 'value': bp, 'primary': len(phones) == 0})
+
+        addresses = []
+        for addr_type in ['homeAddress', 'businessAddress']:
+            addr = item.get(addr_type)
+            if addr:
+                addresses.append({
+                    'type': 'home' if addr_type == 'homeAddress' else 'work',
+                    'street': addr.get('street'),
+                    'city': addr.get('city'),
+                    'region': addr.get('state'),
+                    'postal_code': addr.get('postalCode'),
+                    'country': addr.get('countryOrRegion')
+                })
+
+        return Contact(
+            id=item['id'],
+            display_name=item.get('displayName', 'Unknown'),
+            first_name=item.get('givenName'),
+            last_name=item.get('surname'),
+            emails=emails,
+            phones=phones,
+            addresses=addresses,
+            birthday=item.get('birthday'),
+            organization=item.get('companyName'),
+            job_title=item.get('jobTitle'),
+            etag=item.get('@odata.etag')
+        )
+
+    def _to_outlook_contact(self, contact: Contact) -> dict:
+        """Convert Contact to Outlook format."""
+        body = {
+            'givenName': contact.first_name,
+            'surname': contact.last_name,
+            'displayName': contact.display_name,
+            'emailAddresses': [
+                {'address': e['value'], 'name': e.get('type', 'email')}
+                for e in contact.emails
+            ]
+        }
+
+        # Phones
+        for phone in contact.phones:
+            if phone.get('type') == 'mobile':
+                body['mobilePhone'] = phone['value']
+            elif phone.get('type') == 'home':
+                body.setdefault('homePhones', []).append(phone['value'])
+            elif phone.get('type') == 'work':
+                body.setdefault('businessPhones', []).append(phone['value'])
+
+        if contact.birthday:
+            body['birthday'] = contact.birthday
+
+        if contact.organization:
+            body['companyName'] = contact.organization
+
+        if contact.job_title:
+            body['jobTitle'] = contact.job_title
+
+        return body
+```
+
+### Contact Matcher (Auto-link to Family Members)
+```python
+# backend/services/contacts_sync/matcher.py
+from typing import Optional, List, Tuple
+from difflib import SequenceMatcher
+
+class ContactMatcher:
+    """Matches external contacts to Family Hub members."""
+
+    def __init__(self, db: AsyncSession, tenant_id: UUID):
+        self.db = db
+        self.tenant_id = tenant_id
+
+    async def find_matching_family_member(
+        self,
+        contact: Contact
+    ) -> Tuple[Optional[UUID], float, str]:
+        """
+        Find best matching family member for a contact.
+        Returns (family_member_id, confidence, match_reason).
+        """
+        family_members = await get_family_members(self.db, self.tenant_id)
+
+        best_match = None
+        best_score = 0
+        match_reason = ""
+
+        for member in family_members:
+            score, reason = self._calculate_match_score(contact, member)
+            if score > best_score:
+                best_score = score
+                best_match = member.id
+                match_reason = reason
+
+        # Only return if confidence > 0.7
+        if best_score >= 0.7:
+            return best_match, best_score, match_reason
+
+        return None, 0, ""
 
     def _calculate_match_score(
         self,
-        incoming: ContactSyncData,
-        existing: Contact
-    ) -> Tuple[float, List[str]]:
-        """Calculate match score between two contacts."""
-        score = 0
+        contact: Contact,
+        member: FamilyMember
+    ) -> Tuple[float, str]:
+        """Calculate match score between contact and family member."""
+        scores = []
         reasons = []
 
-        # Exact email match = 50 points
-        if self._emails_match(incoming.emails, existing):
-            score += 50
-            reasons.append('same_email')
+        # Email match (highest confidence)
+        contact_emails = {e['value'].lower() for e in contact.emails if e.get('value')}
+        member_email = member.email.lower() if member.email else None
 
-        # Exact phone match = 40 points
-        if self._phones_match(incoming.phones, existing):
-            score += 40
-            reasons.append('same_phone')
+        if member_email and member_email in contact_emails:
+            return 1.0, "email_exact"
 
-        # Name similarity = up to 30 points
-        name_score = self._name_similarity(incoming, existing)
-        if name_score > 0.8:
-            score += 30
-            reasons.append('similar_name')
-        elif name_score > 0.6:
-            score += 15
-            reasons.append('partial_name_match')
+        # Phone match (high confidence)
+        contact_phones = {self._normalize_phone(p['value']) for p in contact.phones if p.get('value')}
+        member_phone = self._normalize_phone(member.phone) if member.phone else None
 
-        return min(score, 100), reasons
+        if member_phone and member_phone in contact_phones:
+            return 0.95, "phone_exact"
 
-    def merge_contacts(
-        self,
-        existing: Contact,
-        incoming: ContactSyncData,
-        strategy: str = 'prefer_existing'
-    ) -> Contact:
+        # Name match
+        name_score = self._name_similarity(contact, member)
+        if name_score > 0:
+            scores.append(name_score)
+            reasons.append(f"name_similarity_{name_score:.0%}")
+
+        if not scores:
+            return 0, ""
+
+        return max(scores), reasons[scores.index(max(scores))]
+
+    def _name_similarity(self, contact: Contact, member: FamilyMember) -> float:
+        """Calculate name similarity score."""
+        contact_name = contact.display_name.lower()
+        member_name = member.name.lower()
+
+        # Exact match
+        if contact_name == member_name:
+            return 0.9
+
+        # First name match
+        if contact.first_name and contact.first_name.lower() == member_name.split()[0]:
+            return 0.8
+
+        # Fuzzy match
+        ratio = SequenceMatcher(None, contact_name, member_name).ratio()
+        if ratio > 0.8:
+            return ratio * 0.85
+
+        return 0
+
+    def _normalize_phone(self, phone: str) -> str:
+        """Normalize phone number for comparison."""
+        if not phone:
+            return ""
+        # Strip everything except digits
+        digits = ''.join(c for c in phone if c.isdigit())
+        # Keep last 10 digits for comparison
+        return digits[-10:] if len(digits) >= 10 else digits
+```
+
+### Sync Engine
+```python
+# backend/services/contacts_sync/engine.py
+from datetime import datetime
+from typing import List
+import asyncio
+
+class ContactsSyncEngine:
+    """Orchestrates contacts synchronization."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.matcher = None
+
+    async def sync_contacts(self, provider_id: UUID) -> SyncResult:
         """
-        Merge incoming data into existing contact.
-        Strategy: 'prefer_existing', 'prefer_incoming', 'fill_gaps'
-        """
-        if strategy == 'fill_gaps':
-            # Only fill in missing fields
-            if not existing.birthday and incoming.birthday:
-                existing.birthday = incoming.birthday
-            # ... etc
+        Perform bidirectional sync for contacts.
 
-        return existing
+        Flow:
+        1. Fetch remote changes since last sync
+        2. Match new contacts to family members
+        3. Detect conflicts for existing contacts
+        4. Apply remote changes locally
+        5. Push family member changes to remote
+        6. Update sync state
+        """
+        provider = await get_contact_provider(self.db, provider_id)
+        sync_provider = self._get_provider(provider)
+        sync_state = await get_contact_sync_state(self.db, provider_id)
+        self.matcher = ContactMatcher(self.db, provider.tenant_id)
+
+        result = SyncResult()
+
+        # 1. Fetch remote changes
+        page_token = None
+        all_contacts = []
+        new_sync_token = None
+
+        while True:
+            contacts, new_sync_token, page_token = await sync_provider.fetch_contacts(
+                sync_token=sync_state.sync_token if sync_state else None,
+                page_token=page_token
+            )
+            all_contacts.extend(contacts)
+            if not page_token:
+                break
+
+        # 2. Process each contact
+        for remote_contact in all_contacts:
+            existing = await get_external_contact_by_provider_id(
+                self.db, provider_id, remote_contact.id
+            )
+
+            if existing:
+                if getattr(remote_contact, 'is_deleted', False):
+                    # Handle deletion
+                    await mark_contact_deleted(self.db, existing.id)
+                    result.deleted += 1
+                elif self._has_conflict(existing, remote_contact):
+                    await self._create_conflict(provider, existing, remote_contact)
+                    result.conflicts += 1
+                else:
+                    await self._update_local_contact(existing, remote_contact)
+                    result.updated += 1
+            else:
+                # New contact - create locally and try to match
+                local_contact = await self._create_local_contact(provider, remote_contact)
+
+                if provider.auto_link_family:
+                    member_id, confidence, reason = await self.matcher.find_matching_family_member(
+                        remote_contact
+                    )
+                    if member_id:
+                        await link_contact_to_family_member(
+                            self.db, local_contact.id, member_id, 'auto_linked'
+                        )
+
+                result.created += 1
+
+        # 3. Push family member changes to remote (if bidirectional)
+        if provider.sync_direction == 'bidirectional':
+            unsynced_members = await get_unsynced_family_members(
+                self.db,
+                provider.tenant_id,
+                since=sync_state.last_sync_at if sync_state else None
+            )
+
+            for member in unsynced_members:
+                external_contact = await get_contact_linked_to_member(
+                    self.db, provider_id, member.id
+                )
+
+                contact_data = self._family_member_to_contact(member)
+
+                if external_contact:
+                    # Update existing
+                    await sync_provider.update_contact(
+                        external_contact.external_contact_id,
+                        contact_data
+                    )
+                else:
+                    # Create new
+                    external_id = await sync_provider.create_contact(contact_data)
+                    await create_external_contact(
+                        self.db, provider_id, external_id, member.id, contact_data
+                    )
+                result.pushed += 1
+
+        # 4. Update sync state
+        await update_contact_sync_state(
+            self.db,
+            provider_id,
+            sync_token=new_sync_token,
+            last_sync_at=datetime.utcnow(),
+            status='success'
+        )
+
+        return result
+
+    def _family_member_to_contact(self, member: FamilyMember) -> Contact:
+        """Convert FamilyMember to Contact for pushing to provider."""
+        emails = []
+        if member.email:
+            emails.append({'type': 'home', 'value': member.email, 'primary': True})
+
+        phones = []
+        if member.phone:
+            phones.append({'type': 'mobile', 'value': member.phone, 'primary': True})
+
+        return Contact(
+            id='',  # Will be set by provider
+            display_name=member.name,
+            first_name=member.name.split()[0] if member.name else None,
+            last_name=' '.join(member.name.split()[1:]) if member.name and ' ' in member.name else None,
+            emails=emails,
+            phones=phones,
+            addresses=[],
+            birthday=member.date_of_birth.isoformat() if member.date_of_birth else None
+        )
 ```
 
 ---
 
 ## API Endpoints
 
-### Contact CRUD
+### Provider Connection
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/contacts` | List contacts (paginated, searchable) |
-| GET | `/contacts/{id}` | Get single contact |
-| POST | `/contacts` | Create manual contact |
-| PUT | `/contacts/{id}` | Update contact |
-| DELETE | `/contacts/{id}` | Delete contact |
-| GET | `/contacts/birthdays/upcoming` | Get upcoming birthdays |
+| GET | `/contacts-sync/providers` | List connected contact providers |
+| POST | `/contacts-sync/connect/google` | Start Google OAuth (adds People API scope) |
+| GET | `/contacts-sync/connect/google/callback` | Google OAuth callback |
+| POST | `/contacts-sync/connect/icloud` | Connect iCloud (uses same creds as calendar) |
+| POST | `/contacts-sync/connect/outlook` | Start Microsoft OAuth (adds Contacts scope) |
+| GET | `/contacts-sync/connect/outlook/callback` | Microsoft OAuth callback |
 
-### Sync Management
+### Sync Operations
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/contacts/sources` | List connected sync sources |
-| POST | `/contacts/sources/icloud` | Connect iCloud (app password) |
-| POST | `/contacts/sources/google` | Start Google OAuth flow |
-| GET | `/contacts/sources/google/callback` | Google OAuth callback |
-| DELETE | `/contacts/sources/{id}` | Disconnect sync source |
-| POST | `/contacts/sources/{id}/sync` | Trigger manual sync |
-| GET | `/contacts/sources/{id}/status` | Get sync status |
+| POST | `/contacts-sync/providers/{id}/sync` | Trigger manual sync |
+| GET | `/contacts-sync/providers/{id}/status` | Get sync status |
+| GET | `/contacts-sync/conflicts` | List pending conflicts |
+| POST | `/contacts-sync/conflicts/{id}/resolve` | Resolve conflict |
 
-### Duplicate Resolution
+### External Contacts
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/contacts/pending-merges` | List pending duplicates |
-| POST | `/contacts/pending-merges/{id}/merge` | Merge contacts |
-| POST | `/contacts/pending-merges/{id}/keep-both` | Keep as separate |
-| POST | `/contacts/pending-merges/{id}/skip` | Skip incoming |
+| GET | `/contacts-sync/contacts` | List all synced contacts |
+| GET | `/contacts-sync/contacts/{id}` | Get single contact |
+| POST | `/contacts-sync/contacts/{id}/link` | Link contact to family member |
+| DELETE | `/contacts-sync/contacts/{id}/link` | Unlink contact from family member |
+| POST | `/contacts-sync/contacts/{id}/ignore` | Mark contact as ignored (won't show) |
 
 ---
 
@@ -455,107 +1083,178 @@ class ContactMerger:
 
 ### Directory Structure
 ```
-frontend/src/features/contacts/
-├── ContactsPage.tsx           # Main contacts list page
-├── ContactCard.tsx            # Individual contact display
-├── ContactDetailDrawer.tsx    # Full contact view/edit
-├── ContactForm.tsx            # Create/edit form
-├── ContactSearch.tsx          # Search and filter bar
-├── SyncSourcesPanel.tsx       # Manage sync connections
-├── ICloudConnectModal.tsx     # iCloud setup (app password)
-├── GoogleConnectButton.tsx    # Google OAuth button
-├── DuplicateReviewModal.tsx   # Resolve duplicates
-├── BirthdayWidget.tsx         # Dashboard widget
-└── contacts.css
+frontend/src/features/contacts-sync/
+├── ContactsSyncSettings.tsx      # Main settings panel
+├── ConnectedProvidersList.tsx    # List of connected providers
+├── SyncedContactsList.tsx        # View synced contacts
+├── ContactLinkingModal.tsx       # Link contact to family member
+├── ContactConflictModal.tsx      # Resolve sync conflicts
+├── ContactCard.tsx               # Display single contact
+└── contacts-sync.css
 ```
 
 ### Key UI Flows
 
-#### 1. Adding iCloud Sync
+#### 1. Connecting Google Contacts (with existing Calendar)
 ```
-User clicks "Connect iCloud"
-  → ICloudConnectModal opens
-  → Shows instructions for generating app-specific password
-  → User enters Apple ID + app password
-  → Backend validates via CardDAV
-  → On success: starts initial sync
-  → Shows progress: "Syncing 150 contacts..."
-  → Displays any duplicates for review
-```
-
-#### 2. Adding Google Sync
-```
-User clicks "Connect Google"
-  → Redirects to Google OAuth consent
-  → User grants "View contacts" permission
-  → Callback saves tokens
-  → Starts initial sync
-  → Displays any duplicates for review
+User has Google Calendar connected
+User clicks "Sync Contacts" → "Enable for Google"
+  → Shows "Use same Google account as Calendar?"
+  → User confirms
+  → Requests additional People API scope
+  → Contacts sync enabled
+  → Initial sync starts
 ```
 
-#### 3. Duplicate Resolution
+#### 2. Connecting Google Contacts (standalone)
 ```
-DuplicateReviewModal shows:
+User clicks "Add Provider" → "Google"
+  → Redirects to Google OAuth with Calendar + People API scopes
+  → User grants access
+  → Both Calendar and Contacts sync enabled
+  → Initial sync starts
+```
+
+#### 3. Contact Auto-Linking
+```
+After sync, shows linking suggestions:
   ┌─────────────────────────────────────────────┐
-  │  Potential Duplicate Found                  │
+  │  Auto-Linked Contacts                       │
   │                                             │
-  │  ┌─────────────┐    ┌─────────────┐        │
-  │  │ Existing    │    │ From iCloud │        │
-  │  │ John Smith  │    │ John Smith  │        │
-  │  │ 07700...    │    │ 07700...    │        │
-  │  │ No birthday │    │ 15 Mar 1985 │        │
-  │  └─────────────┘    └─────────────┘        │
+  │  ✓ John Smith → Dad (email match)          │
+  │  ✓ Sarah Brown → Mum (phone match)         │
+  │  ? Mike Wilson → Tommy? (name similar)      │
   │                                             │
-  │  Match: 90% (same phone, similar name)     │
-  │                                             │
-  │  [Merge] [Keep Both] [Skip Incoming]       │
+  │  [Confirm All] [Review Individually]       │
   └─────────────────────────────────────────────┘
+```
+
+#### 4. Family Directory View
+```
+Family Directory shows unified view:
+  ┌─────────────────────────────────────────────┐
+  │  Family Directory                           │
+  │                                             │
+  │  ┌────────┐                                │
+  │  │  Dad   │  John Smith                    │
+  │  │ [photo]│  john@email.com   [Google]     │
+  │  │        │  07700 900123     [Hub]        │
+  │  └────────┘  123 Main St      [Google]     │
+  │                                             │
+  │  ┌────────┐                                │
+  │  │  Mum   │  Sarah Brown                   │
+  │  │ [photo]│  sarah@email.com  [iCloud]     │
+  │  │        │  07700 900456     [Hub]        │
+  │  └────────┘                                │
+  └─────────────────────────────────────────────┘
+```
+
+---
+
+## Sync Timing
+
+### Automatic Sync
+- **Pull frequency:** Every 30 minutes via background task
+- **Push frequency:** Immediately when family member updated
+- **Full sync:** Daily at 4 AM
+
+### Background Worker
+```python
+# backend/workers/contacts_sync_worker.py
+from celery import Celery
+from celery.schedules import crontab
+
+@app.task
+def sync_all_contacts():
+    """Sync all active contact providers."""
+    providers = get_active_contact_providers()
+    for provider in providers:
+        sync_contacts.delay(provider.id)
+
+@app.task
+def sync_contacts(provider_id: UUID):
+    """Sync single provider."""
+    engine = ContactsSyncEngine(db)
+    result = await engine.sync_contacts(provider_id)
+    log.info(f"Synced contacts {provider_id}: {result}")
+
+# Schedule
+app.conf.beat_schedule = {
+    'sync-contacts-every-30-minutes': {
+        'task': 'sync_all_contacts',
+        'schedule': crontab(minute='*/30'),
+    },
+}
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 2.1a: Core Contacts (No Sync)
-1. Database migrations
-2. Contact CRUD API
-3. Contact list UI
-4. Contact form (create/edit)
-5. Birthday widget for dashboard
+### Phase 2.3a: Google Contacts (with jamesbrownyork8@gmail.com)
+1. Add People API scope to existing Google OAuth
+2. Implement GoogleContactsSync provider
+3. ContactMatcher for auto-linking
+4. Initial pull sync
+5. Bidirectional sync with conflict detection
 
-### Phase 2.1b: iCloud Sync
-1. CardDAV integration
-2. iCloud connect modal
-3. Initial sync logic
-4. Duplicate detection
+### Phase 2.3b: iCloud Contacts
+1. CardDAV integration (same credentials as calendar)
+2. vCard parsing
+3. Full sync implementation
 
-### Phase 2.1c: Google Sync
-1. Google OAuth setup
-2. People API integration
-3. Google connect flow
-4. Unified duplicate handling
+### Phase 2.3c: Outlook Contacts
+1. Add Contacts.ReadWrite scope to Microsoft OAuth
+2. Graph API provider
+3. Delta query for incremental sync
+
+### Phase 2.3d: Family Directory
+1. Unified contact view
+2. Manual linking UI
+3. Conflict resolution UI
+4. Contact merging
+
+---
+
+## OAuth Scope Summary
+
+### Google
+```
+# Calendar only
+https://www.googleapis.com/auth/calendar
+
+# Calendar + Contacts (combined)
+https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/contacts
+https://www.googleapis.com/auth/contacts.other.readonly
+```
+
+### Microsoft/Outlook
+```
+# Calendar only
+Calendars.ReadWrite
+
+# Calendar + Contacts (combined)
+Calendars.ReadWrite
+Contacts.ReadWrite
+```
+
+### iCloud
+- Same Apple ID + App Password for both CalDAV and CardDAV
+- No separate OAuth, credentials shared
 
 ---
 
 ## Security Considerations
 
-1. **Token Encryption:** All OAuth tokens and passwords encrypted at rest using Fernet
-2. **Scopes:** Request minimal OAuth scopes (read-only contacts)
-3. **App Passwords:** iCloud uses app-specific passwords, not main password
-4. **Token Refresh:** Automatic token refresh before expiry
-5. **Audit Log:** Log all sync operations for debugging
+1. **Shared Credentials:** Reuse OAuth tokens when possible, request minimal additional scopes
+2. **Token Encryption:** All tokens encrypted with Fernet (same as calendar)
+3. **Contact Privacy:** Only sync contacts user explicitly enables
+4. **PII Handling:** Contact data is PII - ensure proper encryption at rest
+5. **Audit:** Log all sync operations and linking actions
 
 ---
 
-## Testing Strategy
-
-1. **Unit Tests:** Duplicate detection logic, vCard parsing
-2. **Integration Tests:** Provider API mocking
-3. **E2E Tests:** Full sync flow with test accounts
-4. **Manual Testing:** Real iCloud/Google accounts
-
----
-
-**Document Version:** 1.0
-**Last Updated:** December 22, 2025
+**Document Version:** 2.0
+**Last Updated:** December 27, 2025
 **Owner:** James Brown
