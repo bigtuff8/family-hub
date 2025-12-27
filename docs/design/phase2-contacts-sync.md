@@ -10,16 +10,43 @@
 
 ## Overview
 
-Two-way contact synchronization with Google Contacts, iCloud Contacts, and Outlook Contacts. Family members stored in Family Hub sync TO external contact providers, and external contacts sync INTO Family Hub's Family Directory for a unified view.
+User-specific contact management with external provider sync. Each family member has their own personal contacts, with the ability to share contacts with the whole family. Contacts are used for event invitations via the smart lookup feature.
+
+### Key Principles
+1. **User-Specific Contacts** - Each user owns their own contact list
+2. **Publish to Family** - Option to share contacts with all family members
+3. **Smart Lookup** - Typeahead search across personal + family contacts when inviting
+4. **External Sync** - Pull contacts from Google, iCloud, Outlook per user
+5. **Parental Visibility** - Parents can view/manage children's contacts
 
 ### Key Requirements
-- Two-way sync (bidirectional) - matching calendar sync approach
-- Shared OAuth credentials with Calendar Sync (same provider connection)
-- Unified Family Directory view across providers
-- Conflict detection with merge capabilities
-- Support Google, iCloud, Outlook
-- Auto-link synced contacts to family members
+- User-specific contact ownership
+- "Publish to Family" shared contacts bucket
+- Smart contact lookup for event invitations (typeahead)
+- Two-way sync with external providers (Google, iCloud, Outlook)
 - Birthday tracking integration
+- Parental controls for minors' contacts
+
+### Contact Ownership Model
+```
+Family Hub (Brown Family)
+├── James's Contacts (private to James)
+│   ├── Synced from Google (jamesbrownyork8@gmail.com)
+│   ├── Synced from Outlook
+│   ├── Manually added in app
+│   └── Can publish any contact to family
+├── Nicola's Contacts (private to Nicola)
+│   ├── Synced from iCloud
+│   └── Manually added in app
+├── Tommy's Contacts (visible to parents)
+│   └── Synced from iCloud
+├── Harry's Contacts (managed by parents)
+│   └── (empty for now - age 7)
+└── Family Contacts (shared bucket, visible to all)
+    ├── Grandma (published by James)
+    ├── Grandpa (published by James)
+    └── Aunt Sarah (published by Nicola)
+```
 
 ### Relationship to Calendar Sync
 Contacts sync shares the same provider connections as Calendar sync:
@@ -31,8 +58,74 @@ Contacts sync shares the same provider connections as Calendar sync:
 
 ## Database Models
 
+### Contacts Table (User-Owned)
+```sql
+-- Main contacts table - each contact is owned by a specific user
+CREATE TABLE contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Contact details
+    display_name VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    nickname VARCHAR(100),
+
+    -- Primary contact methods
+    email_primary VARCHAR(255),
+    phone_primary VARCHAR(50),
+
+    -- Additional contact methods (JSONB for flexibility)
+    emails JSONB,  -- [{'type': 'work', 'value': 'x@y.com'}, ...]
+    phones JSONB,  -- [{'type': 'mobile', 'value': '+447...'}, ...]
+    addresses JSONB,
+
+    -- Personal details
+    birthday DATE,
+    anniversary DATE,
+    photo_url TEXT,
+
+    -- Organization
+    company VARCHAR(200),
+    job_title VARCHAR(200),
+
+    -- Notes
+    notes TEXT,
+
+    -- Source tracking
+    source VARCHAR(50) DEFAULT 'manual',  -- 'manual', 'google', 'icloud', 'outlook'
+    external_id VARCHAR(255),  -- ID from external provider
+    external_etag VARCHAR(255),
+    last_synced_at TIMESTAMP WITH TIME ZONE,
+
+    -- Family sharing
+    is_published_to_family BOOLEAN DEFAULT FALSE,
+    published_at TIMESTAMP WITH TIME ZONE,
+    published_by_user_id UUID REFERENCES users(id),
+
+    -- Status
+    is_favorite BOOLEAN DEFAULT FALSE,
+    is_archived BOOLEAN DEFAULT FALSE,
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    -- Ensure external contacts are unique per user/provider
+    UNIQUE(owner_user_id, source, external_id)
+);
+
+CREATE INDEX idx_contacts_owner ON contacts(owner_user_id);
+CREATE INDEX idx_contacts_tenant ON contacts(tenant_id);
+CREATE INDEX idx_contacts_email ON contacts(email_primary);
+CREATE INDEX idx_contacts_published ON contacts(tenant_id, is_published_to_family) WHERE is_published_to_family = TRUE;
+CREATE INDEX idx_contacts_search ON contacts USING gin(to_tsvector('english', display_name || ' ' || COALESCE(email_primary, '')));
+```
+
 ### ExternalContactProvider Table
 ```sql
+-- User's connected contact providers (for sync)
 CREATE TABLE external_contact_providers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -40,7 +133,7 @@ CREATE TABLE external_contact_providers (
 
     -- Provider info (links to calendar OAuth when possible)
     provider VARCHAR(50) NOT NULL,  -- 'google', 'icloud', 'outlook'
-    external_calendar_id UUID REFERENCES external_calendars(id),  -- Shared OAuth
+    external_calendar_id UUID REFERENCES user_external_calendars(id),  -- Shared OAuth
 
     -- Standalone credentials (if no calendar connected)
     access_token_encrypted TEXT,
@@ -53,15 +146,15 @@ CREATE TABLE external_contact_providers (
     -- Settings
     sync_direction VARCHAR(20) DEFAULT 'bidirectional',
     is_active BOOLEAN DEFAULT TRUE,
-    auto_link_family BOOLEAN DEFAULT TRUE,  -- Auto-link synced contacts to family members
 
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    UNIQUE(tenant_id, provider)
+    UNIQUE(user_id, provider)
 );
 
+CREATE INDEX idx_contact_providers_user ON external_contact_providers(user_id);
 CREATE INDEX idx_contact_providers_tenant ON external_contact_providers(tenant_id);
 ```
 
@@ -1050,32 +1143,81 @@ class ContactsSyncEngine:
 
 ## API Endpoints
 
+### Contact CRUD (User-Owned)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/contacts` | List current user's contacts |
+| POST | `/contacts` | Create new contact |
+| GET | `/contacts/{id}` | Get single contact |
+| PUT | `/contacts/{id}` | Update contact |
+| DELETE | `/contacts/{id}` | Delete contact |
+| POST | `/contacts/{id}/publish` | Publish contact to family |
+| DELETE | `/contacts/{id}/publish` | Unpublish from family |
+
+### Family Contacts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/contacts/family` | List all published family contacts |
+| GET | `/contacts/family/birthdays` | Get upcoming birthdays |
+
+### Smart Lookup (for Event Invitations)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/contacts/lookup?q={query}` | Smart search for invitee selection |
+
+**Smart Lookup Response:**
+```json
+{
+  "results": [
+    {
+      "type": "family_user",
+      "id": "user-uuid",
+      "display_name": "Nicola (Mum)",
+      "email": "nicola@icloud.com",
+      "avatar_url": "...",
+      "is_minor": false
+    },
+    {
+      "type": "contact",
+      "id": "contact-uuid",
+      "display_name": "Grandma",
+      "email": "grandma@email.com",
+      "source": "family",  // or "personal"
+      "owner_name": "James"
+    },
+    {
+      "type": "email_suggestion",
+      "email": "john@newdomain.com",
+      "prompt": "Invite as guest"
+    }
+  ]
+}
+```
+
 ### Provider Connection
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/contacts-sync/providers` | List connected contact providers |
-| POST | `/contacts-sync/connect/google` | Start Google OAuth (adds People API scope) |
-| GET | `/contacts-sync/connect/google/callback` | Google OAuth callback |
-| POST | `/contacts-sync/connect/icloud` | Connect iCloud (uses same creds as calendar) |
-| POST | `/contacts-sync/connect/outlook` | Start Microsoft OAuth (adds Contacts scope) |
-| GET | `/contacts-sync/connect/outlook/callback` | Microsoft OAuth callback |
+| GET | `/contacts/providers` | List connected contact providers |
+| POST | `/contacts/providers/connect/google` | Start Google OAuth (adds People API scope) |
+| GET | `/contacts/providers/connect/google/callback` | Google OAuth callback |
+| POST | `/contacts/providers/connect/icloud` | Connect iCloud (uses same creds as calendar) |
+| POST | `/contacts/providers/connect/outlook` | Start Microsoft OAuth (adds Contacts scope) |
+| GET | `/contacts/providers/connect/outlook/callback` | Microsoft OAuth callback |
 
 ### Sync Operations
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/contacts-sync/providers/{id}/sync` | Trigger manual sync |
-| GET | `/contacts-sync/providers/{id}/status` | Get sync status |
-| GET | `/contacts-sync/conflicts` | List pending conflicts |
-| POST | `/contacts-sync/conflicts/{id}/resolve` | Resolve conflict |
+| POST | `/contacts/providers/{id}/sync` | Trigger manual sync |
+| GET | `/contacts/providers/{id}/status` | Get sync status |
+| GET | `/contacts/conflicts` | List pending conflicts |
+| POST | `/contacts/conflicts/{id}/resolve` | Resolve conflict |
 
-### External Contacts
+### Parental Access
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/contacts-sync/contacts` | List all synced contacts |
-| GET | `/contacts-sync/contacts/{id}` | Get single contact |
-| POST | `/contacts-sync/contacts/{id}/link` | Link contact to family member |
-| DELETE | `/contacts-sync/contacts/{id}/link` | Unlink contact from family member |
-| POST | `/contacts-sync/contacts/{id}/ignore` | Mark contact as ignored (won't show) |
+| GET | `/parental/children/{id}/contacts` | View child's contacts |
+| POST | `/parental/children/{id}/contacts` | Add contact for child |
+| DELETE | `/parental/children/{id}/contacts/{contact_id}` | Remove child's contact |
 
 ---
 
@@ -1083,14 +1225,24 @@ class ContactsSyncEngine:
 
 ### Directory Structure
 ```
-frontend/src/features/contacts-sync/
-├── ContactsSyncSettings.tsx      # Main settings panel
-├── ConnectedProvidersList.tsx    # List of connected providers
-├── SyncedContactsList.tsx        # View synced contacts
-├── ContactLinkingModal.tsx       # Link contact to family member
-├── ContactConflictModal.tsx      # Resolve sync conflicts
+frontend/src/features/contacts/
+├── ContactsPage.tsx              # Main contacts list page
 ├── ContactCard.tsx               # Display single contact
-└── contacts-sync.css
+├── ContactDetailDrawer.tsx       # Full contact view/edit
+├── ContactForm.tsx               # Create/edit form
+├── MyContactsList.tsx            # User's personal contacts
+├── FamilyContactsList.tsx        # Published family contacts
+├── components/
+│   ├── SmartContactSearch.tsx    # Typeahead for invitee selection
+│   ├── ContactAvatar.tsx
+│   ├── PublishToFamilyButton.tsx
+│   └── ContactSourceBadge.tsx    # Google/iCloud/Manual badge
+├── sync/
+│   ├── ContactsSyncSettings.tsx  # Provider connection settings
+│   ├── ConnectedProvidersList.tsx
+│   ├── SyncStatusBadge.tsx
+│   └── ContactConflictModal.tsx
+└── contacts.css
 ```
 
 ### Key UI Flows
@@ -1115,37 +1267,121 @@ User clicks "Add Provider" → "Google"
   → Initial sync starts
 ```
 
-#### 3. Contact Auto-Linking
+#### 3. Smart Contact Lookup (for Event Invitations)
 ```
-After sync, shows linking suggestions:
+User types in invitee field:
   ┌─────────────────────────────────────────────┐
-  │  Auto-Linked Contacts                       │
+  │  Add Invitees                               │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ gran                                │   │
+  │  └─────────────────────────────────────┘   │
   │                                             │
-  │  ✓ John Smith → Dad (email match)          │
-  │  ✓ Sarah Brown → Mum (phone match)         │
-  │  ? Mike Wilson → Tommy? (name similar)      │
+  │  Search results (as user types "gran"):    │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ 👤 FAMILY MEMBERS                   │   │
+  │  │    (none matching)                  │   │
+  │  │                                     │   │
+  │  │ 📇 YOUR CONTACTS                    │   │
+  │  │    Grandma - grandma@email.com     │   │
+  │  │    Grandpa - grandpa@email.com     │   │
+  │  │                                     │   │
+  │  │ 👨‍👩‍👧‍👦 FAMILY CONTACTS                │   │
+  │  │    Gran (Nicola's) - gran@mail.com │   │
+  │  │                                     │   │
+  │  │ ➕ Invite "gran" as new email...    │   │
+  │  └─────────────────────────────────────┘   │
+  └─────────────────────────────────────────────┘
+
+Search priority:
+1. Family members (embedded users)
+2. User's own contacts (synced + manual)
+3. Family shared contacts (published by others)
+4. Option to invite as new email/create contact
+```
+
+#### 4. Publishing Contact to Family
+```
+ContactDetailDrawer shows:
+  ┌─────────────────────────────────────────────┐
+  │  Grandma                           [Edit]   │
   │                                             │
-  │  [Confirm All] [Review Individually]       │
+  │  📧 grandma@email.com                       │
+  │  📱 07700 123456                            │
+  │  🎂 March 15                                │
+  │                                             │
+  │  Source: Google Contacts [synced]          │
+  │                                             │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ 👨‍👩‍👧‍👦 Share with Family               │   │
+  │  │                                     │   │
+  │  │ [Publish to Family]                │   │
+  │  │                                     │   │
+  │  │ When published, all family members │   │
+  │  │ can see this contact and use it    │   │
+  │  │ for event invitations.             │   │
+  │  └─────────────────────────────────────┘   │
+  └─────────────────────────────────────────────┘
+
+After publishing:
+  ┌─────────────────────────────────────────────┐
+  │  ✓ Published to Family                      │
+  │    Shared by: James                         │
+  │    [Unpublish]                              │
   └─────────────────────────────────────────────┘
 ```
 
-#### 4. Family Directory View
+#### 5. My Contacts vs Family Contacts View
 ```
-Family Directory shows unified view:
+ContactsPage with tabs:
   ┌─────────────────────────────────────────────┐
-  │  Family Directory                           │
+  │  Contacts                      [+ Add New]  │
   │                                             │
-  │  ┌────────┐                                │
-  │  │  Dad   │  John Smith                    │
-  │  │ [photo]│  john@email.com   [Google]     │
-  │  │        │  07700 900123     [Hub]        │
-  │  └────────┘  123 Main St      [Google]     │
+  │  [My Contacts] [Family Contacts]            │
+  │  ─────────────                              │
   │                                             │
-  │  ┌────────┐                                │
-  │  │  Mum   │  Sarah Brown                   │
-  │  │ [photo]│  sarah@email.com  [iCloud]     │
-  │  │        │  07700 900456     [Hub]        │
-  │  └────────┘                                │
+  │  My Contacts (showing personal):            │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ Grandma          [Google] [Family]  │   │
+  │  │ grandma@email.com                   │   │
+  │  ├─────────────────────────────────────┤   │
+  │  │ Work - Bob       [Google]           │   │
+  │  │ bob@company.com                     │   │
+  │  ├─────────────────────────────────────┤   │
+  │  │ Dentist          [Manual]           │   │
+  │  │ 0113 123 4567                       │   │
+  │  └─────────────────────────────────────┘   │
+  │                                             │
+  │  Filter: [All] [Google] [iCloud] [Manual]  │
+  └─────────────────────────────────────────────┘
+
+Family Contacts tab:
+  ┌─────────────────────────────────────────────┐
+  │  Family Contacts (shared with everyone):    │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ Grandma          Shared by: James   │   │
+  │  │ grandma@email.com                   │   │
+  │  ├─────────────────────────────────────┤   │
+  │  │ Aunt Sarah       Shared by: Nicola  │   │
+  │  │ sarah@email.com                     │   │
+  │  └─────────────────────────────────────┘   │
+  └─────────────────────────────────────────────┘
+```
+
+#### 6. Adding External Invitee (Prompt to Create Contact)
+```
+When user types a new email and selects "Invite as guest":
+  ┌─────────────────────────────────────────────┐
+  │  Add to Contacts?                           │
+  │                                             │
+  │  You're inviting: john@example.com          │
+  │                                             │
+  │  Would you like to save this as a contact? │
+  │                                             │
+  │  Name: [John                           ]   │
+  │                                             │
+  │  [Skip - Just Invite] [Save & Invite]      │
+  │                                             │
+  │  ☐ Also publish to Family Contacts         │
   └─────────────────────────────────────────────┘
 ```
 
@@ -1191,28 +1427,40 @@ app.conf.beat_schedule = {
 
 ## Implementation Phases
 
-### Phase 2.3a: Google Contacts (with jamesbrownyork8@gmail.com)
-1. Add People API scope to existing Google OAuth
-2. Implement GoogleContactsSync provider
-3. ContactMatcher for auto-linking
-4. Initial pull sync
-5. Bidirectional sync with conflict detection
+### Phase 2.3a: Core Contacts (User-Owned)
+1. Contacts database table with user ownership
+2. Contact CRUD API endpoints
+3. ContactsPage with My Contacts / Family Contacts tabs
+4. Contact create/edit form
+5. "Publish to Family" functionality
 
-### Phase 2.3b: iCloud Contacts
+### Phase 2.3b: Smart Contact Lookup
+1. `/contacts/lookup` API endpoint
+2. SmartContactSearch component (typeahead)
+3. Search across family users, personal contacts, family contacts
+4. "Invite as guest" option with prompt to save contact
+5. Integration with CreateEventModal
+
+### Phase 2.3c: Google Contacts Sync (jamesbrownyork8@gmail.com)
+1. Add People API scope to Google OAuth
+2. Implement GoogleContactsSync provider
+3. Initial pull sync into user's personal contacts
+4. Bidirectional sync with conflict detection
+
+### Phase 2.3d: iCloud Contacts Sync
 1. CardDAV integration (same credentials as calendar)
 2. vCard parsing
 3. Full sync implementation
 
-### Phase 2.3c: Outlook Contacts
+### Phase 2.3e: Outlook Contacts Sync
 1. Add Contacts.ReadWrite scope to Microsoft OAuth
 2. Graph API provider
 3. Delta query for incremental sync
 
-### Phase 2.3d: Family Directory
-1. Unified contact view
-2. Manual linking UI
-3. Conflict resolution UI
-4. Contact merging
+### Phase 2.3f: Parental Controls for Contacts
+1. Parents can view children's contacts
+2. Parents can manage contacts for minors
+3. Contact visibility rules based on parental_controls table
 
 ---
 

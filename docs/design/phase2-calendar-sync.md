@@ -4,34 +4,264 @@
 **Phase:** 2 - Integration & Sync
 **Status:** Design Complete
 **Created:** December 22, 2025
+**Updated:** December 27, 2025
 
 ---
 
 ## Overview
 
-Two-way calendar synchronization with Google Calendar, iCloud Calendar, and Outlook. Events created in Family Hub sync TO external calendars, and external events sync INTO Family Hub for a unified view.
+Family Hub acts as the **source of truth** for family events. Events created in the app are distributed to family members and external invitees via calendar invites. Users respond to invites from their external calendars (Google, iCloud, Outlook), and responses sync back to the app.
 
-### Key Requirements
-- Two-way sync (bidirectional)
-- Single calendar per provider (user selects which one)
-- Unified view of all calendars
-- Conflict detection with exception process
-- Support Google, iCloud, Outlook
+### Key Principles
+1. **Family Hub is the Organizer** - All events created in the app are owned by the app
+2. **Invite-Based Distribution** - Events sent as calendar invites to all invitees
+3. **Response-Only External Interaction** - Users can Accept/Decline/Tentative from external calendars, but cannot edit event details
+4. **Amendments Only in App** - Any changes to events must be made in Family Hub
+5. **User-Specific Sync** - Each family member connects their own calendar accounts
+
+### Family Structure Example
+```
+Family Hub (Brown Family)
+├── James (Dad) - default: jamesbrownyork8@gmail.com
+│   └── Connected: Google, Outlook, iCloud
+├── Nicola (Mum) - default: nicola@icloud.com
+│   └── Connected: iCloud
+├── Tommy (minor) - default: tommy@icloud.com
+│   └── Connected: iCloud (parent-visible)
+└── Harry (minor, age 7) - default: harry@icloud.com
+    └── Connected: (invites sent, no responses expected)
+```
+
+---
+
+## Architecture
+
+### Dedicated Organizer Account
+
+All invites are sent FROM a dedicated Family Hub Outlook account, which serves as the calendar organizer identity.
+
+```
+Family Hub Organizer Account (Outlook)
+├── Email: familyhub-brown@outlook.com
+├── Calendar: "Family Hub"
+├── Sends all meeting invites
+├── Receives all responses
+└── Future: Email notifications channel
+```
+
+**Why Outlook:**
+- Microsoft Graph API has excellent invite/response management
+- Free tier is sufficient
+- Good webhook support for response tracking
+- Clear organizer identity in all calendar apps
+
+### Event Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     FAMILY HUB APP                          │
+│                   (Source of Truth)                         │
+├─────────────────────────────────────────────────────────────┤
+│  1. James creates "Family Dinner - Saturday 6pm"            │
+│  2. Adds invitees: Nicola, Tommy, Harry, Grandma           │
+│  3. App stores event and generates invites                  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+        ┌───────────────────────────────────────┐
+        │     Family Hub Organizer Account      │
+        │     (familyhub-brown@outlook.com)     │
+        │                                       │
+        │  Creates event in "Family Hub"        │
+        │  calendar with all attendees          │
+        └───────────────────┬───────────────────┘
+                            │
+            Outlook sends ICS invites to:
+                            │
+    ┌───────────┬───────────┼───────────┬───────────┐
+    ▼           ▼           ▼           ▼           ▼
+┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+│James's │ │James's │ │Nicola's│ │Tommy's │ │Grandma │
+│Google  │ │iCloud  │ │iCloud  │ │iCloud  │ │Email   │
+└───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘ └───┬────┘
+    │          │          │          │          │
+    └──────────┴────┬─────┴──────────┴──────────┘
+                    │
+                    ▼
+        Responses sync back to app via:
+        - Microsoft Graph webhooks
+        - Polling organizer calendar
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│  App shows responses:                                       │
+│  "Family Dinner" - Nicola ✓, Tommy ✓, Harry ?, Grandma ✗   │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Database Models
 
-### ExternalCalendar Table
+### User Email Accounts Table
 ```sql
-CREATE TABLE external_calendars (
+-- Email accounts connected by each user (for receiving invites)
+CREATE TABLE user_email_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+
+    -- Account details
+    email_address VARCHAR(255) NOT NULL,
+    provider VARCHAR(50),  -- 'google', 'icloud', 'outlook', 'other'
+    display_name VARCHAR(255),  -- "Work Email", "Personal"
+
+    -- Settings
+    is_default BOOLEAN DEFAULT FALSE,  -- Primary for receiving invites
+    is_verified BOOLEAN DEFAULT FALSE,
+    receive_invites BOOLEAN DEFAULT TRUE,  -- Send invites to this address
+
+    -- OAuth (if syncing responses from this account)
+    access_token_encrypted TEXT,
+    refresh_token_encrypted TEXT,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    UNIQUE(user_id, email_address)
+);
+
+CREATE INDEX idx_user_emails_user ON user_email_accounts(user_id);
+CREATE INDEX idx_user_emails_default ON user_email_accounts(user_id, is_default);
+```
+
+### Organizer Account Table
+```sql
+-- The dedicated Family Hub organizer account (one per tenant)
+CREATE TABLE organizer_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+
+    -- Account details
+    provider VARCHAR(50) NOT NULL DEFAULT 'outlook',
+    email_address VARCHAR(255) NOT NULL,
+    calendar_id VARCHAR(255),  -- The calendar ID in the provider
+
+    -- OAuth credentials (encrypted)
+    access_token_encrypted TEXT NOT NULL,
+    refresh_token_encrypted TEXT NOT NULL,
+    token_expires_at TIMESTAMP WITH TIME ZONE,
+
+    -- Status
+    is_active BOOLEAN DEFAULT TRUE,
+    last_sync_at TIMESTAMP WITH TIME ZONE,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    UNIQUE(tenant_id)
+);
+```
+
+### Events Table (Updated)
+```sql
+CREATE TABLE events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+
+    -- Event details
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    location VARCHAR(500),
+
+    -- Timing
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_all_day BOOLEAN DEFAULT FALSE,
+    timezone VARCHAR(50) DEFAULT 'Europe/London',
+
+    -- Recurrence
+    recurrence_rule TEXT,  -- RRULE format
+    recurrence_parent_id UUID REFERENCES events(id),
+
+    -- Ownership
+    created_by_user_id UUID NOT NULL REFERENCES users(id),
+    is_family_hub_event BOOLEAN DEFAULT TRUE,  -- Created in app (vs imported)
+
+    -- External tracking (for organizer account)
+    external_event_id VARCHAR(255),  -- ID in organizer's calendar
+    external_etag VARCHAR(255),
+
+    -- Status
+    status VARCHAR(50) DEFAULT 'confirmed',  -- 'confirmed', 'tentative', 'cancelled'
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_events_tenant ON events(tenant_id);
+CREATE INDEX idx_events_time ON events(tenant_id, start_time);
+CREATE INDEX idx_events_created_by ON events(created_by_user_id);
+```
+
+### Event Invites Table
+```sql
+-- Tracks who is invited and their response
+CREATE TABLE event_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+
+    -- Invitee (one of these will be set)
+    invitee_user_id UUID REFERENCES users(id) ON DELETE CASCADE,  -- Family member
+    invitee_contact_id UUID REFERENCES contacts(id) ON DELETE CASCADE,  -- External contact
+    invitee_email VARCHAR(255),  -- Fallback if no user/contact record
+
+    -- Computed for queries
+    invitee_type VARCHAR(50) NOT NULL,  -- 'family_user', 'contact', 'email_only'
+    invitee_display_name VARCHAR(255),
+
+    -- Response tracking
+    response_status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'accepted', 'declined', 'tentative'
+    response_received_at TIMESTAMP WITH TIME ZONE,
+    response_source VARCHAR(50),  -- 'google', 'outlook', 'icloud', 'manual'
+    response_comment TEXT,
+
+    -- Invite delivery
+    invite_sent_at TIMESTAMP WITH TIME ZONE,
+    invite_sent_to_email VARCHAR(255),  -- Which email received the invite
+    invite_delivery_status VARCHAR(50),  -- 'sent', 'delivered', 'bounced'
+
+    -- For updates
+    last_update_sent_at TIMESTAMP WITH TIME ZONE,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    UNIQUE(event_id, invitee_user_id),
+    UNIQUE(event_id, invitee_contact_id),
+    UNIQUE(event_id, invitee_email)
+);
+
+CREATE INDEX idx_event_invites_event ON event_invites(event_id);
+CREATE INDEX idx_event_invites_user ON event_invites(invitee_user_id);
+CREATE INDEX idx_event_invites_pending ON event_invites(tenant_id, response_status);
+```
+
+### External Calendar Sync Table (For pulling external events)
+```sql
+-- User's connected calendars (for viewing their external events in unified view)
+CREATE TABLE user_external_calendars (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
     -- Provider info
     provider VARCHAR(50) NOT NULL,  -- 'google', 'icloud', 'outlook'
-    provider_calendar_id VARCHAR(255) NOT NULL,  -- Provider's calendar ID
+    provider_calendar_id VARCHAR(255) NOT NULL,
     calendar_name VARCHAR(255),
     calendar_color VARCHAR(7),
 
@@ -42,105 +272,45 @@ CREATE TABLE external_calendars (
 
     -- iCloud specific
     caldav_url TEXT,
-    icloud_app_password_encrypted TEXT,
+    app_password_encrypted TEXT,
 
     -- Sync settings
-    sync_direction VARCHAR(20) DEFAULT 'bidirectional',  -- 'bidirectional', 'pull_only', 'push_only'
-    is_primary BOOLEAN DEFAULT FALSE,  -- Primary calendar for new events
     is_active BOOLEAN DEFAULT TRUE,
+    show_in_unified_view BOOLEAN DEFAULT TRUE,
 
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    UNIQUE(tenant_id, provider, provider_calendar_id)
-);
-
-CREATE INDEX idx_external_calendars_tenant ON external_calendars(tenant_id);
-CREATE INDEX idx_external_calendars_user ON external_calendars(user_id);
-```
-
-### CalendarSyncState Table
-```sql
-CREATE TABLE calendar_sync_states (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    external_calendar_id UUID NOT NULL REFERENCES external_calendars(id) ON DELETE CASCADE,
-
-    -- Sync tracking
+    -- Sync state
     last_sync_at TIMESTAMP WITH TIME ZONE,
-    last_sync_status VARCHAR(50),  -- 'success', 'failed', 'partial'
-    last_sync_error TEXT,
-
-    -- Incremental sync tokens
-    sync_token TEXT,  -- Google sync token
-    ctag TEXT,        -- CalDAV ctag
-
-    -- Stats
-    events_synced INTEGER DEFAULT 0,
-    events_created INTEGER DEFAULT 0,
-    events_updated INTEGER DEFAULT 0,
-    events_deleted INTEGER DEFAULT 0,
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-```
-
-### CalendarEventMapping Table
-```sql
-CREATE TABLE calendar_event_mappings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    -- Family Hub event
-    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-
-    -- External event
-    external_calendar_id UUID NOT NULL REFERENCES external_calendars(id) ON DELETE CASCADE,
-    external_event_id VARCHAR(255) NOT NULL,
-    external_etag VARCHAR(255),  -- For change detection
-
-    -- Sync metadata
-    last_synced_at TIMESTAMP WITH TIME ZONE,
-    sync_direction VARCHAR(20),  -- 'from_external', 'to_external'
-    is_deleted BOOLEAN DEFAULT FALSE,
+    sync_token TEXT,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    UNIQUE(event_id, external_calendar_id),
-    UNIQUE(external_calendar_id, external_event_id)
+    UNIQUE(user_id, provider, provider_calendar_id)
 );
-
-CREATE INDEX idx_event_mappings_event ON calendar_event_mappings(event_id);
-CREATE INDEX idx_event_mappings_external ON calendar_event_mappings(external_calendar_id);
 ```
 
-### CalendarConflict Table
+### Parental Controls Table
 ```sql
-CREATE TABLE calendar_conflicts (
+CREATE TABLE parental_controls (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
 
-    -- Conflicting events
-    event_id UUID REFERENCES events(id) ON DELETE SET NULL,
-    external_calendar_id UUID REFERENCES external_calendars(id) ON DELETE CASCADE,
-    external_event_id VARCHAR(255),
+    -- Relationship
+    parent_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    child_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
-    -- Conflict details
-    conflict_type VARCHAR(50) NOT NULL,  -- 'time_overlap', 'update_conflict', 'delete_conflict'
-    local_data JSONB,       -- Family Hub event data at conflict time
-    external_data JSONB,    -- External event data at conflict time
+    -- Permissions
+    can_view_calendar BOOLEAN DEFAULT TRUE,
+    can_view_contacts BOOLEAN DEFAULT TRUE,
+    can_manage_calendar BOOLEAN DEFAULT TRUE,  -- Create/edit events for them
+    can_manage_contacts BOOLEAN DEFAULT TRUE,
+    can_respond_on_behalf BOOLEAN DEFAULT TRUE,  -- Respond to invites for them
 
-    -- Resolution
-    status VARCHAR(50) DEFAULT 'pending',  -- 'pending', 'resolved_local', 'resolved_external', 'ignored'
-    resolved_at TIMESTAMP WITH TIME ZONE,
-    resolved_by UUID REFERENCES users(id),
-    resolution_notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    UNIQUE(parent_user_id, child_user_id)
 );
-
-CREATE INDEX idx_calendar_conflicts_tenant ON calendar_conflicts(tenant_id, status);
 ```
 
 ---
@@ -149,447 +319,439 @@ CREATE INDEX idx_calendar_conflicts_tenant ON calendar_conflicts(tenant_id, stat
 
 ### Directory Structure
 ```
-backend/services/calendar_sync/
+backend/services/calendar/
 ├── __init__.py
-├── routes.py           # API endpoints
-├── schemas.py          # Pydantic models
-├── crud.py             # Database operations
-├── engine.py           # Main sync orchestrator
-├── providers/
+├── routes.py               # API endpoints
+├── schemas.py              # Pydantic models
+├── crud.py                 # Database operations
+├── events.py               # Event management
+├── invites.py              # Invite sending & tracking
+├── responses.py            # Response sync & processing
+├── organizer/
 │   ├── __init__.py
-│   ├── base.py         # Abstract provider interface
-│   ├── google.py       # Google Calendar API
-│   ├── icloud.py       # iCloud CalDAV
-│   └── outlook.py      # Microsoft Graph API
-├── conflict.py         # Conflict detection/resolution
-└── utils.py            # iCal parsing, timezone handling
+│   ├── outlook.py          # Outlook Graph API for organizer
+│   └── manager.py          # Organizer account management
+├── user_calendars/
+│   ├── __init__.py
+│   ├── base.py             # Abstract provider
+│   ├── google.py           # Google Calendar (user's view)
+│   ├── icloud.py           # iCloud Calendar (user's view)
+│   └── outlook.py          # Outlook Calendar (user's view)
+└── unified_view.py         # Merge all calendars for display
 ```
 
-### Provider Abstraction
+### Organizer Account Manager
 ```python
-# backend/services/calendar_sync/providers/base.py
-from abc import ABC, abstractmethod
-from typing import List, Optional
+# backend/services/calendar/organizer/manager.py
 from datetime import datetime
-
-class CalendarEvent:
-    """Normalized event format across providers."""
-    id: str
-    title: str
-    description: Optional[str]
-    start_time: datetime
-    end_time: datetime
-    is_all_day: bool
-    location: Optional[str]
-    attendees: List[str]
-    recurrence: Optional[str]  # RRULE string
-    etag: Optional[str]
-
-class CalendarSyncProvider(ABC):
-    """Base class for calendar sync providers."""
-
-    @abstractmethod
-    async def authenticate(self, credentials: dict) -> bool:
-        """Validate credentials."""
-        pass
-
-    @abstractmethod
-    async def list_calendars(self) -> List[dict]:
-        """List available calendars for user to select."""
-        pass
-
-    @abstractmethod
-    async def fetch_events(
-        self,
-        calendar_id: str,
-        since: datetime = None,
-        sync_token: str = None
-    ) -> tuple[List[CalendarEvent], str]:
-        """Fetch events. Returns (events, new_sync_token)."""
-        pass
-
-    @abstractmethod
-    async def create_event(self, calendar_id: str, event: CalendarEvent) -> str:
-        """Create event, return external ID."""
-        pass
-
-    @abstractmethod
-    async def update_event(self, calendar_id: str, event_id: str, event: CalendarEvent) -> bool:
-        """Update existing event."""
-        pass
-
-    @abstractmethod
-    async def delete_event(self, calendar_id: str, event_id: str) -> bool:
-        """Delete event."""
-        pass
-```
-
-### Google Calendar Implementation
-```python
-# backend/services/calendar_sync/providers/google.py
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-
-class GoogleCalendarSync(CalendarSyncProvider):
-    """Google Calendar sync via Calendar API v3."""
-
-    def __init__(self, access_token: str, refresh_token: str):
-        self.credentials = Credentials(
-            token=access_token,
-            refresh_token=refresh_token,
-            token_uri='https://oauth2.googleapis.com/token',
-            client_id=settings.GOOGLE_CLIENT_ID,
-            client_secret=settings.GOOGLE_CLIENT_SECRET
-        )
-        self.service = build('calendar', 'v3', credentials=self.credentials)
-
-    async def list_calendars(self) -> List[dict]:
-        """List user's calendars."""
-        result = self.service.calendarList().list().execute()
-        return [
-            {
-                'id': cal['id'],
-                'name': cal['summary'],
-                'color': cal.get('backgroundColor'),
-                'is_primary': cal.get('primary', False)
-            }
-            for cal in result.get('items', [])
-        ]
-
-    async def fetch_events(
-        self,
-        calendar_id: str,
-        since: datetime = None,
-        sync_token: str = None
-    ) -> tuple[List[CalendarEvent], str]:
-        """Fetch events with incremental sync support."""
-
-        params = {
-            'calendarId': calendar_id,
-            'maxResults': 250,
-            'singleEvents': True,
-            'orderBy': 'startTime'
-        }
-
-        if sync_token:
-            params['syncToken'] = sync_token
-        elif since:
-            params['timeMin'] = since.isoformat() + 'Z'
-
-        events = []
-        page_token = None
-
-        while True:
-            if page_token:
-                params['pageToken'] = page_token
-
-            result = self.service.events().list(**params).execute()
-
-            for item in result.get('items', []):
-                events.append(self._parse_event(item))
-
-            page_token = result.get('nextPageToken')
-            if not page_token:
-                break
-
-        new_sync_token = result.get('nextSyncToken')
-        return events, new_sync_token
-
-    async def create_event(self, calendar_id: str, event: CalendarEvent) -> str:
-        """Create event in Google Calendar."""
-        body = self._to_google_event(event)
-        result = self.service.events().insert(
-            calendarId=calendar_id,
-            body=body
-        ).execute()
-        return result['id']
-
-    def _parse_event(self, item: dict) -> CalendarEvent:
-        """Parse Google event to normalized format."""
-        start = item.get('start', {})
-        end = item.get('end', {})
-
-        return CalendarEvent(
-            id=item['id'],
-            title=item.get('summary', 'Untitled'),
-            description=item.get('description'),
-            start_time=self._parse_datetime(start),
-            end_time=self._parse_datetime(end),
-            is_all_day='date' in start,
-            location=item.get('location'),
-            attendees=[a['email'] for a in item.get('attendees', [])],
-            recurrence=item.get('recurrence', [None])[0],
-            etag=item.get('etag')
-        )
-```
-
-### iCloud CalDAV Implementation
-```python
-# backend/services/calendar_sync/providers/icloud.py
-import caldav
-from icalendar import Calendar as iCalendar
-
-class ICloudCalendarSync(CalendarSyncProvider):
-    """iCloud Calendar sync via CalDAV."""
-
-    CALDAV_URL = "https://caldav.icloud.com"
-
-    def __init__(self, apple_id: str, app_password: str):
-        self.client = caldav.DAVClient(
-            url=self.CALDAV_URL,
-            username=apple_id,
-            password=app_password
-        )
-
-    async def list_calendars(self) -> List[dict]:
-        """List iCloud calendars."""
-        principal = self.client.principal()
-        calendars = principal.calendars()
-
-        return [
-            {
-                'id': str(cal.url),
-                'name': cal.name,
-                'color': cal.get_properties(['{http://apple.com/ns/ical/}calendar-color']).get(
-                    '{http://apple.com/ns/ical/}calendar-color', '#4285f4'
-                )
-            }
-            for cal in calendars
-        ]
-
-    async def fetch_events(
-        self,
-        calendar_id: str,
-        since: datetime = None,
-        sync_token: str = None
-    ) -> tuple[List[CalendarEvent], str]:
-        """Fetch events from iCloud calendar."""
-        calendar = self.client.calendar(url=calendar_id)
-
-        # Get ctag for change detection
-        props = calendar.get_properties(['{http://calendarserver.org/ns/}getctag'])
-        new_ctag = props.get('{http://calendarserver.org/ns/}getctag')
-
-        # Fetch events
-        if since:
-            events = calendar.date_search(start=since, end=None)
-        else:
-            events = calendar.events()
-
-        parsed_events = []
-        for event in events:
-            ical = iCalendar.from_ical(event.data)
-            for component in ical.walk():
-                if component.name == 'VEVENT':
-                    parsed_events.append(self._parse_vevent(component, event))
-
-        return parsed_events, new_ctag
-```
-
-### Outlook/Microsoft Graph Implementation
-```python
-# backend/services/calendar_sync/providers/outlook.py
-import msal
+from typing import List
 import aiohttp
 
-class OutlookCalendarSync(CalendarSyncProvider):
-    """Outlook Calendar sync via Microsoft Graph API."""
+class OrganizerAccountManager:
+    """Manages the dedicated Family Hub organizer Outlook account."""
 
     GRAPH_URL = "https://graph.microsoft.com/v1.0"
 
-    def __init__(self, access_token: str, refresh_token: str):
-        self.access_token = access_token
-        self.refresh_token = refresh_token
+    def __init__(self, db: AsyncSession, tenant_id: UUID):
+        self.db = db
+        self.tenant_id = tenant_id
+        self.organizer = None
 
-    async def list_calendars(self) -> List[dict]:
-        """List Outlook calendars."""
+    async def initialize(self):
+        """Load organizer account credentials."""
+        self.organizer = await get_organizer_account(self.db, self.tenant_id)
+        if not self.organizer:
+            raise ValueError("No organizer account configured for tenant")
+
+    async def create_event_with_invites(
+        self,
+        event: Event,
+        invitees: List[EventInvite]
+    ) -> str:
+        """
+        Create event in organizer's calendar with all attendees.
+        Outlook will automatically send invites to all attendees.
+        """
+        headers = await self._get_auth_headers()
+
+        # Build attendee list
+        attendees = []
+        for invite in invitees:
+            email = invite.invite_sent_to_email or invite.invitee_email
+            attendees.append({
+                "emailAddress": {
+                    "address": email,
+                    "name": invite.invitee_display_name
+                },
+                "type": "required"
+            })
+
+        # Create event body
+        event_body = {
+            "subject": event.title,
+            "body": {
+                "contentType": "HTML",
+                "content": event.description or ""
+            },
+            "start": {
+                "dateTime": event.start_time.isoformat(),
+                "timeZone": event.timezone
+            },
+            "end": {
+                "dateTime": event.end_time.isoformat(),
+                "timeZone": event.timezone
+            },
+            "location": {
+                "displayName": event.location or ""
+            },
+            "attendees": attendees,
+            "isOnlineMeeting": False,
+            # Custom property to identify Family Hub events
+            "singleValueExtendedProperties": [{
+                "id": "String {66f5a359-4659-4830-9070-00047ec6ac6e} Name FamilyHubEventId",
+                "value": str(event.id)
+            }]
+        }
+
+        if event.is_all_day:
+            event_body["isAllDay"] = True
+
         async with aiohttp.ClientSession() as session:
-            headers = {'Authorization': f'Bearer {self.access_token}'}
+            async with session.post(
+                f"{self.GRAPH_URL}/me/calendars/{self.organizer.calendar_id}/events",
+                headers=headers,
+                json=event_body
+            ) as response:
+                if response.status == 201:
+                    data = await response.json()
+                    return data["id"]
+                else:
+                    error = await response.text()
+                    raise Exception(f"Failed to create event: {error}")
+
+    async def update_event(self, external_event_id: str, event: Event) -> bool:
+        """
+        Update event in organizer's calendar.
+        Outlook will automatically send update notifications to attendees.
+        """
+        headers = await self._get_auth_headers()
+
+        event_body = {
+            "subject": event.title,
+            "body": {
+                "contentType": "HTML",
+                "content": event.description or ""
+            },
+            "start": {
+                "dateTime": event.start_time.isoformat(),
+                "timeZone": event.timezone
+            },
+            "end": {
+                "dateTime": event.end_time.isoformat(),
+                "timeZone": event.timezone
+            },
+            "location": {
+                "displayName": event.location or ""
+            }
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.patch(
+                f"{self.GRAPH_URL}/me/events/{external_event_id}",
+                headers=headers,
+                json=event_body
+            ) as response:
+                return response.status == 200
+
+    async def cancel_event(self, external_event_id: str, comment: str = None) -> bool:
+        """
+        Cancel event - sends cancellation to all attendees.
+        """
+        headers = await self._get_auth_headers()
+
+        body = {}
+        if comment:
+            body["comment"] = comment
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{self.GRAPH_URL}/me/events/{external_event_id}/cancel",
+                headers=headers,
+                json=body
+            ) as response:
+                return response.status == 202
+
+    async def fetch_attendee_responses(self, external_event_id: str) -> List[dict]:
+        """
+        Fetch current attendee responses from the event.
+        """
+        headers = await self._get_auth_headers()
+
+        async with aiohttp.ClientSession() as session:
             async with session.get(
-                f"{self.GRAPH_URL}/me/calendars",
+                f"{self.GRAPH_URL}/me/events/{external_event_id}?$select=attendees",
                 headers=headers
             ) as response:
-                data = await response.json()
-                return [
-                    {
-                        'id': cal['id'],
-                        'name': cal['name'],
-                        'color': self._map_outlook_color(cal.get('color')),
-                        'is_primary': cal.get('isDefaultCalendar', False)
-                    }
-                    for cal in data.get('value', [])
-                ]
-
-    async def fetch_events(
-        self,
-        calendar_id: str,
-        since: datetime = None,
-        sync_token: str = None
-    ) -> tuple[List[CalendarEvent], str]:
-        """Fetch events via delta query for incremental sync."""
-        async with aiohttp.ClientSession() as session:
-            headers = {'Authorization': f'Bearer {self.access_token}'}
-
-            if sync_token:
-                url = sync_token  # Delta link is the full URL
-            else:
-                url = f"{self.GRAPH_URL}/me/calendars/{calendar_id}/events/delta"
-                if since:
-                    url += f"?$filter=lastModifiedDateTime ge {since.isoformat()}Z"
-
-            events = []
-            while url:
-                async with session.get(url, headers=headers) as response:
+                if response.status == 200:
                     data = await response.json()
-                    for item in data.get('value', []):
-                        events.append(self._parse_event(item))
+                    return [
+                        {
+                            "email": att["emailAddress"]["address"],
+                            "name": att["emailAddress"]["name"],
+                            "response": att["status"]["response"],  # 'accepted', 'declined', 'tentativelyAccepted', 'none'
+                            "time": att["status"].get("time")
+                        }
+                        for att in data.get("attendees", [])
+                    ]
+                return []
 
-                    url = data.get('@odata.nextLink')
-                    delta_link = data.get('@odata.deltaLink')
+    async def _get_auth_headers(self) -> dict:
+        """Get authorization headers, refreshing token if needed."""
+        # Check if token needs refresh
+        if self.organizer.token_expires_at < datetime.utcnow():
+            await self._refresh_token()
 
-            return events, delta_link
+        token = decrypt(self.organizer.access_token_encrypted)
+        return {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
 ```
 
-### Sync Engine
+### Invite Manager
 ```python
-# backend/services/calendar_sync/engine.py
-from datetime import datetime, timedelta
-from typing import List
-import asyncio
+# backend/services/calendar/invites.py
+from typing import List, Optional
+from uuid import UUID
 
-class CalendarSyncEngine:
-    """Orchestrates calendar synchronization."""
+class InviteManager:
+    """Manages event invites and response tracking."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, tenant_id: UUID):
         self.db = db
+        self.tenant_id = tenant_id
+        self.organizer = OrganizerAccountManager(db, tenant_id)
 
-    async def sync_calendar(self, external_calendar_id: UUID) -> SyncResult:
+    async def send_invites_for_event(self, event_id: UUID) -> int:
         """
-        Perform bidirectional sync for a calendar.
-
-        Flow:
-        1. Fetch remote changes since last sync
-        2. Fetch local changes since last sync
-        3. Detect conflicts
-        4. Apply remote changes locally
-        5. Push local changes to remote
-        6. Update sync state
+        Send invites to all invitees of an event.
+        Returns number of invites sent.
         """
-        calendar = await get_external_calendar(self.db, external_calendar_id)
-        provider = self._get_provider(calendar)
-        sync_state = await get_sync_state(self.db, external_calendar_id)
+        await self.organizer.initialize()
 
-        result = SyncResult()
+        event = await get_event(self.db, event_id)
+        invites = await get_event_invites(self.db, event_id)
 
-        # 1. Fetch remote changes
-        remote_events, new_sync_token = await provider.fetch_events(
-            calendar.provider_calendar_id,
-            sync_token=sync_state.sync_token
+        # Resolve email addresses for each invitee
+        for invite in invites:
+            if invite.invitee_user_id:
+                # Family member - get their default email
+                email_account = await get_default_email(
+                    self.db, invite.invitee_user_id
+                )
+                invite.invite_sent_to_email = email_account.email_address
+            elif invite.invitee_contact_id:
+                # Contact - get primary email
+                contact = await get_contact(self.db, invite.invitee_contact_id)
+                invite.invite_sent_to_email = contact.email_primary
+            # else: invitee_email is already set
+
+        # Create event in organizer calendar (sends invites automatically)
+        external_id = await self.organizer.create_event_with_invites(
+            event, invites
         )
 
-        # 2. Process each remote event
-        for remote_event in remote_events:
-            mapping = await get_event_mapping_by_external(
-                self.db, external_calendar_id, remote_event.id
+        # Update event with external ID
+        await update_event_external_id(self.db, event_id, external_id)
+
+        # Mark invites as sent
+        for invite in invites:
+            await update_invite_sent(
+                self.db,
+                invite.id,
+                sent_at=datetime.utcnow(),
+                sent_to=invite.invite_sent_to_email,
+                status='sent'
             )
 
-            if mapping:
-                # Existing event - check for conflicts
-                local_event = await get_event(self.db, mapping.event_id)
-                if self._has_conflict(local_event, remote_event, mapping):
-                    await self._create_conflict(calendar, local_event, remote_event)
-                    result.conflicts += 1
-                else:
-                    await self._update_local_event(local_event, remote_event)
-                    result.updated += 1
-            else:
-                # New remote event - create locally
-                local_event = await self._create_local_event(calendar, remote_event)
-                result.created += 1
+        return len(invites)
 
-        # 3. Push local changes to remote
-        local_changes = await get_unsynced_events(
-            self.db,
-            calendar.tenant_id,
-            since=sync_state.last_sync_at
+    async def sync_responses(self, event_id: UUID) -> dict:
+        """
+        Sync responses from organizer calendar back to app.
+        Returns dict of changes.
+        """
+        await self.organizer.initialize()
+
+        event = await get_event(self.db, event_id)
+        if not event.external_event_id:
+            return {"error": "Event not synced to organizer calendar"}
+
+        # Fetch current responses
+        responses = await self.organizer.fetch_attendee_responses(
+            event.external_event_id
         )
 
-        for local_event in local_changes:
-            mapping = await get_event_mapping_by_local(
-                self.db, external_calendar_id, local_event.id
+        changes = {"updated": 0, "unchanged": 0}
+
+        for response in responses:
+            # Map Outlook response to our format
+            status_map = {
+                "accepted": "accepted",
+                "declined": "declined",
+                "tentativelyAccepted": "tentative",
+                "none": "pending",
+                "notResponded": "pending"
+            }
+
+            new_status = status_map.get(response["response"], "pending")
+
+            # Find matching invite
+            invite = await get_invite_by_email(
+                self.db, event_id, response["email"]
             )
 
-            if mapping:
-                # Update remote
-                await provider.update_event(
-                    calendar.provider_calendar_id,
-                    mapping.external_event_id,
-                    self._to_calendar_event(local_event)
+            if invite and invite.response_status != new_status:
+                await update_invite_response(
+                    self.db,
+                    invite.id,
+                    status=new_status,
+                    received_at=response.get("time"),
+                    source="outlook"
                 )
+                changes["updated"] += 1
             else:
-                # Create remote
-                external_id = await provider.create_event(
-                    calendar.provider_calendar_id,
-                    self._to_calendar_event(local_event)
-                )
-                await create_event_mapping(
-                    self.db, local_event.id, external_calendar_id, external_id
-                )
-            result.pushed += 1
+                changes["unchanged"] += 1
 
-        # 4. Update sync state
-        await update_sync_state(
-            self.db,
-            external_calendar_id,
-            sync_token=new_sync_token,
-            last_sync_at=datetime.utcnow(),
-            status='success'
-        )
+        return changes
 
-        return result
-
-    def _has_conflict(
+    async def add_invitee(
         self,
-        local: Event,
-        remote: CalendarEvent,
-        mapping: CalendarEventMapping
-    ) -> bool:
-        """Check if local and remote have conflicting changes."""
-        # Both modified since last sync
-        if (local.updated_at > mapping.last_synced_at and
-            remote.etag != mapping.external_etag):
-            return True
-        return False
+        event_id: UUID,
+        invitee_user_id: UUID = None,
+        invitee_contact_id: UUID = None,
+        invitee_email: str = None
+    ) -> EventInvite:
+        """
+        Add a new invitee to an existing event.
+        Sends invite if event already synced.
+        """
+        # Determine invitee type and display name
+        if invitee_user_id:
+            user = await get_user(self.db, invitee_user_id)
+            invitee_type = "family_user"
+            display_name = user.display_name
+        elif invitee_contact_id:
+            contact = await get_contact(self.db, invitee_contact_id)
+            invitee_type = "contact"
+            display_name = contact.display_name
+            invitee_email = contact.email_primary
+        else:
+            invitee_type = "email_only"
+            display_name = invitee_email
+
+        # Create invite record
+        invite = await create_event_invite(
+            self.db,
+            event_id=event_id,
+            invitee_user_id=invitee_user_id,
+            invitee_contact_id=invitee_contact_id,
+            invitee_email=invitee_email,
+            invitee_type=invitee_type,
+            invitee_display_name=display_name
+        )
+
+        # If event already synced, add attendee to existing event
+        event = await get_event(self.db, event_id)
+        if event.external_event_id:
+            await self.organizer.initialize()
+            await self.organizer.add_attendee(
+                event.external_event_id,
+                invitee_email,
+                display_name
+            )
+
+        return invite
+```
+
+### Response Sync Worker
+```python
+# backend/workers/response_sync_worker.py
+from celery import Celery
+from celery.schedules import crontab
+
+@app.task
+def sync_all_event_responses():
+    """Sync responses for all active events."""
+    events = get_events_with_pending_responses()
+    for event in events:
+        sync_event_responses.delay(event.id)
+
+@app.task
+def sync_event_responses(event_id: UUID):
+    """Sync responses for a single event."""
+    manager = InviteManager(db, event.tenant_id)
+    result = await manager.sync_responses(event_id)
+    log.info(f"Synced responses for event {event_id}: {result}")
+
+# Schedule - every 5 minutes for active response tracking
+app.conf.beat_schedule = {
+    'sync-responses-every-5-minutes': {
+        'task': 'sync_all_event_responses',
+        'schedule': crontab(minute='*/5'),
+    },
+}
 ```
 
 ---
 
 ## API Endpoints
 
-### Calendar Connection
+### Event Management
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/calendar-sync/calendars` | List connected calendars |
-| POST | `/calendar-sync/connect/google` | Start Google OAuth |
-| GET | `/calendar-sync/connect/google/callback` | Google OAuth callback |
-| POST | `/calendar-sync/connect/icloud` | Connect iCloud |
-| POST | `/calendar-sync/connect/outlook` | Start Microsoft OAuth |
-| GET | `/calendar-sync/connect/outlook/callback` | Microsoft OAuth callback |
+| GET | `/events` | List events for current user |
+| POST | `/events` | Create new event |
+| GET | `/events/{id}` | Get event details with invitees |
+| PUT | `/events/{id}` | Update event (sends update to invitees) |
+| DELETE | `/events/{id}` | Cancel event (sends cancellation) |
 
-### Calendar Selection
+### Invitee Management
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/calendar-sync/{provider}/available` | List available calendars from provider |
-| POST | `/calendar-sync/{provider}/select` | Select calendar to sync |
-| DELETE | `/calendar-sync/calendars/{id}` | Disconnect calendar |
+| POST | `/events/{id}/invitees` | Add invitee to event |
+| DELETE | `/events/{id}/invitees/{invitee_id}` | Remove invitee |
+| POST | `/events/{id}/invitees/{invitee_id}/respond` | Manually set response (for minors) |
 
-### Sync Operations
+### Response Sync
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/calendar-sync/calendars/{id}/sync` | Trigger manual sync |
-| GET | `/calendar-sync/calendars/{id}/status` | Get sync status |
-| GET | `/calendar-sync/conflicts` | List pending conflicts |
-| POST | `/calendar-sync/conflicts/{id}/resolve` | Resolve conflict |
+| POST | `/events/{id}/sync-responses` | Manually trigger response sync |
+| GET | `/events/{id}/responses` | Get all responses for event |
+
+### User Email Accounts
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/users/me/email-accounts` | List user's email accounts |
+| POST | `/users/me/email-accounts` | Add email account |
+| PUT | `/users/me/email-accounts/{id}` | Update (set default, etc.) |
+| DELETE | `/users/me/email-accounts/{id}` | Remove email account |
+
+### External Calendar Sync (Unified View)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/users/me/calendars` | List user's connected calendars |
+| POST | `/users/me/calendars/connect/google` | Connect Google Calendar |
+| POST | `/users/me/calendars/connect/icloud` | Connect iCloud Calendar |
+| POST | `/users/me/calendars/connect/outlook` | Connect Outlook Calendar |
+| GET | `/calendar/unified` | Get unified view of all events |
+
+### Parental Controls
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/parental/children` | List children under parental control |
+| GET | `/parental/children/{id}/calendar` | View child's calendar |
+| POST | `/parental/children/{id}/respond` | Respond to invite on behalf of child |
 
 ---
 
@@ -597,140 +759,157 @@ class CalendarSyncEngine:
 
 ### Directory Structure
 ```
-frontend/src/features/calendar-sync/
-├── CalendarSyncSettings.tsx      # Main settings panel
-├── ConnectedCalendarsList.tsx    # List of connected calendars
-├── ConnectCalendarModal.tsx      # Provider selection
-├── CalendarSelectionModal.tsx    # Select which calendar to sync
-├── SyncStatusBadge.tsx           # Shows sync status
-├── ConflictReviewModal.tsx       # Resolve sync conflicts
-└── calendar-sync.css
+frontend/src/features/calendar/
+├── CalendarPage.tsx              # Main calendar view
+├── EventDetailModal.tsx          # View/edit event
+├── CreateEventModal.tsx          # Create new event
+├── InviteeSelector.tsx           # Add invitees with smart search
+├── ResponseTracker.tsx           # Show who's responded
+├── UnifiedCalendarView.tsx       # Combined calendar display
+├── components/
+│   ├── EventCard.tsx
+│   ├── ResponseBadge.tsx         # Accept/Decline/Tentative badge
+│   ├── InviteeList.tsx
+│   └── SmartContactSearch.tsx    # Typeahead contact search
+└── settings/
+    ├── EmailAccountsSettings.tsx
+    ├── CalendarSyncSettings.tsx
+    └── ParentalControls.tsx
 ```
 
 ### Key UI Flows
 
-#### 1. Connecting Google Calendar
+#### 1. Creating an Event with Invites
 ```
-User clicks "Add Calendar" → "Google"
-  → Redirects to Google OAuth
-  → User grants calendar access
-  → Callback shows CalendarSelectionModal
-  → Lists user's calendars: "Personal", "Work", "Family"
-  → User selects "Family"
-  → Calendar added, initial sync starts
-  → Shows "Syncing 45 events..."
+User clicks "New Event"
+  → CreateEventModal opens
+  → Fills in: Title, Date/Time, Location
+  → Adds invitees via InviteeSelector:
+      ┌─────────────────────────────────────────────┐
+      │  Add Invitees                               │
+      │  ┌─────────────────────────────────────┐   │
+      │  │ Type name or email...               │   │
+      │  └─────────────────────────────────────┘   │
+      │                                             │
+      │  Smart suggestions (as user types):        │
+      │  ┌─────────────────────────────────────┐   │
+      │  │ 👤 Nicola (Mum) - nicola@icloud.com│   │
+      │  │ 👤 Tommy - tommy@icloud.com         │   │
+      │  │ 📇 Grandma - grandma@email.com     │   │
+      │  │ ➕ Invite "john@newem..." as guest  │   │
+      │  └─────────────────────────────────────┘   │
+      │                                             │
+      │  Selected:                                  │
+      │  [Nicola ×] [Tommy ×] [Harry ×]            │
+      └─────────────────────────────────────────────┘
+  → Clicks "Create & Send Invites"
+  → Event created, invites sent
+  → Shows confirmation with pending responses
 ```
 
-#### 2. Conflict Resolution
+#### 2. Viewing Event Responses
 ```
-ConflictReviewModal shows:
+EventDetailModal shows:
   ┌─────────────────────────────────────────────┐
-  │  Sync Conflict Detected                     │
+  │  Family Dinner                              │
+  │  Saturday, January 4th at 6:00 PM           │
+  │  📍 Home                                    │
   │                                             │
-  │  Event: "Dentist Appointment"               │
-  │  Date: December 28, 2025                    │
+  │  Responses:                                 │
+  │  ┌─────────────────────────────────────┐   │
+  │  │ ✓ Nicola      Accepted   (iCloud)   │   │
+  │  │ ✓ Tommy       Accepted   (iCloud)   │   │
+  │  │ ? Harry       Pending               │   │
+  │  │ ✗ Grandma     Declined   (Gmail)    │   │
+  │  └─────────────────────────────────────┘   │
   │                                             │
-  │  ┌─────────────┐    ┌─────────────┐        │
-  │  │ Family Hub  │    │   Google    │        │
-  │  │ 2:00 PM     │    │ 3:00 PM     │        │
-  │  │ Dr. Smith   │    │ Dr. Jones   │        │
-  │  └─────────────┘    └─────────────┘        │
-  │                                             │
-  │  [Keep Family Hub] [Keep Google] [Merge]   │
+  │  [Edit Event] [Cancel Event]               │
   └─────────────────────────────────────────────┘
 ```
 
 #### 3. Unified Calendar View
 ```
-Calendar shows events with provider badges:
+Calendar displays events from all sources:
   ┌─────────────────────────────────────────────┐
-  │  Monday, December 23                        │
+  │  January 2026                    [Settings] │
+  │  ◀ Week ▶                                  │
   │                                             │
-  │  9:00 AM  ● Team Standup        [Google]   │
-  │  2:00 PM  ● Dentist             [iCloud]   │
-  │  4:00 PM  ● Pick up Tommy       [Hub]      │
-  │  6:00 PM  ● Dinner at Mum's     [Hub]      │
+  │  Monday 5th                                 │
+  │  ├─ 9:00  Team Standup         [Work Cal]  │
+  │  ├─ 14:00 Dentist              [Personal]  │
+  │  └─ 18:00 Family Dinner        [Hub] ✓✓?✗  │
+  │                                             │
+  │  Tuesday 6th                                │
+  │  └─ 15:30 School Pickup        [Hub] ✓     │
+  │                                             │
+  │  Legend:                                    │
+  │  [Hub] = Family Hub event (editable)       │
+  │  [Work Cal] = Synced from Google           │
+  │  [Personal] = Synced from iCloud           │
   └─────────────────────────────────────────────┘
-```
-
----
-
-## Sync Timing
-
-### Automatic Sync
-- **Pull frequency:** Every 15 minutes via background task
-- **Push frequency:** Immediately when event created/updated in Family Hub
-- **Full sync:** Daily at 3 AM to catch any missed changes
-
-### Background Worker
-```python
-# backend/workers/calendar_sync_worker.py
-from celery import Celery
-from celery.schedules import crontab
-
-app = Celery('calendar_sync')
-
-@app.task
-def sync_all_calendars():
-    """Sync all active calendars."""
-    calendars = get_active_calendars()
-    for calendar in calendars:
-        sync_calendar.delay(calendar.id)
-
-@app.task
-def sync_calendar(calendar_id: UUID):
-    """Sync single calendar."""
-    engine = CalendarSyncEngine(db)
-    result = await engine.sync_calendar(calendar_id)
-    log.info(f"Synced calendar {calendar_id}: {result}")
-
-# Schedule
-app.conf.beat_schedule = {
-    'sync-calendars-every-15-minutes': {
-        'task': 'sync_all_calendars',
-        'schedule': crontab(minute='*/15'),
-    },
-}
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 2.2a: Google Calendar
-1. Google OAuth setup in GCP console
-2. Provider implementation
-3. Calendar selection UI
-4. Initial one-way pull sync
-5. Two-way sync with conflict detection
+### Phase 2.2a: Organizer Account Setup
+1. Create dedicated Outlook account for family
+2. Microsoft App Registration for Graph API
+3. OAuth flow to connect organizer account
+4. Basic event creation in organizer calendar
 
-### Phase 2.2b: iCloud Calendar
-1. CalDAV integration
-2. iCloud connect modal
-3. Full sync implementation
+### Phase 2.2b: Invite System
+1. Event creation with invitees
+2. InviteeSelector with smart search
+3. Invite sending via organizer account
+4. Response tracking from organizer calendar
 
-### Phase 2.2c: Outlook Calendar
-1. Microsoft App Registration
-2. Graph API provider
-3. Outlook connect flow
+### Phase 2.2c: User Calendar Sync (Unified View)
+1. User connects their own Google/iCloud/Outlook
+2. Pull external events into unified view
+3. Display with source badges
+4. Read-only for external events
 
-### Phase 2.2d: Unified View
-1. Provider badges on events
-2. Filter by provider
-3. Conflict resolution UI
+### Phase 2.2d: Parental Controls
+1. Parent-child relationship setup
+2. View children's calendars
+3. Respond on behalf of minors
 
 ---
 
 ## Security Considerations
 
-1. **Token Encryption:** All OAuth tokens encrypted with Fernet
-2. **Minimal Scopes:** Request only calendar read/write, not full account
-3. **Token Refresh:** Automatic refresh before expiry
-4. **Revocation:** Allow users to disconnect/revoke access
-5. **Audit:** Log all sync operations
+1. **Organizer Account Security:** Single account with encrypted credentials
+2. **Token Encryption:** All OAuth tokens encrypted with Fernet
+3. **Minimal Scopes:** Request only calendar read/write for organizer
+4. **User Isolation:** Each user only sees their own calendar connections
+5. **Parental Consent:** Minors' accounts managed by designated parents
+6. **Audit Trail:** Log all event modifications and invite sends
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** December 22, 2025
+## External Event Identification
+
+All events created in Family Hub include a custom property for identification:
+
+**Outlook (organizer):**
+```json
+{
+  "singleValueExtendedProperties": [{
+    "id": "String {66f5a359-4659-4830-9070-00047ec6ac6e} Name FamilyHubEventId",
+    "value": "evt-uuid-here"
+  }]
+}
+```
+
+This allows the system to:
+- Identify Family Hub events when syncing
+- Prevent duplicate creation
+- Track events across all attendees' calendars
+
+---
+
+**Document Version:** 2.0
+**Last Updated:** December 27, 2025
 **Owner:** James Brown
