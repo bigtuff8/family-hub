@@ -1,108 +1,100 @@
- Session Starter Checklist
+# Session Starter Checklist
 
 Use this document at the start of each development session to remind Claude of context, priorities, and constraints.
 
-**Last Updated:** December 23, 2025
+**Last Updated:** December 27, 2025
 **Project:** Family Hub
-**Current Phase:** Phase 2 - Advanced Features
+**Current Phase:** Phase 2 - Integration & Sync
 
 ---
 
 ## Quick Start (Paste This at Session Start)
+
+```
 I'm continuing work on Family Hub. Please review:
 
-CLAUDE.md - Development best practices (IMPORTANT)
-docs/technical-debt.md - Current technical debt
-docs/session-starter-checklist.md - This checklist
+1. docs/ROADMAP.md - Project status and requirements (READ THE "Current Status & Next Steps" SECTION FIRST)
+2. docs/session-starter-checklist.md - This checklist
+3. docs/design/phase2-calendar-sync.md - Calendar invite-based architecture
+4. docs/design/phase2-contacts-sync.md - User-owned contacts architecture
 
-Current Phase: Phase 2 - Advanced Features
+Current Phase: Phase 2 - Integration & Sync
 Working on: [describe what you're building]
 
----
-
-## Before Starting Work
-
-### ✅ 1. Technical Debt Status
-📖 **Review:** `docs/technical-debt.md`
-
-**Questions to ask:**
-- Any critical debt blocking current work?
-- Any debt expiring soon (must fix by Phase X)?
-- Any new debt added since last session?
-
-**Current Active Debt (Quick Reference):**
-
-| ID | Issue | Priority | Status |
-|----|-------|----------|--------|
-| TD-007 | N+1 query problem | 🔴 Critical | Active |
-| TD-008 | Missing error handling | 🔴 Critical | Active |
-| TD-009 | Race condition quick add | 🟡 Important | Active |
-| TD-010 | Missing DB indexes | 🟡 Important | Active |
-| TD-011 | Decimal vs Number types | 🟡 Important | Active |
-| TD-012 | Units list mismatch | 🟡 Important | Active |
-| TD-002 | Family relationships | 🟡 Important | Planned |
-| TD-003 | External contacts | 🟡 Important | Planned |
-| TD-004 | Cross-tenant invites | 🟡 Important | Planned |
-
-**Resolved:** TD-001 (tenant_id), TD-005 (timezone), TD-006 (seeding)
+Ready when you are!
+```
 
 ---
 
-### ✅ 2. Current Phase Goals
-📖 **Review:** Project status below
+## Current Status (December 27, 2025)
 
-**Phase 1 - Calendar MVP:** ✅ COMPLETE
-**Phase 1.5 - Auth & Polish:** ✅ COMPLETE
+### What's Complete
+- Phase 1: Calendar MVP
+- Phase 1.5: Authentication
+- Phase 2 (partial): Shopping Lists, Basic Contacts
 
-**Phase 2 Goals (Advanced Features):**
-- [x] Shopping list CRUD
-- [x] Item categories with icons
-- [x] Check-off/toggle items
-- [x] Quantity support
-- [x] Dashboard widget (ShoppingSnapshot)
-- [x] Full shopping page (`/shopping`)
-- [x] Per-tenant category management
-- [x] Custom emoji icons for categories
-- [x] Keyword-based auto-categorization
-- [x] Smart shopping behavior (bulk complete, 24hr auto-hide, duplicate detection)
-- [ ] Tasks/Chores feature
-- [ ] Meal planning
-- [ ] Family relationships (TD-002)
-- [x] External contacts (TD-003) ✅ COMPLETE
+### What's Designed (Ready to Build)
+Major architectural changes were made on December 27, 2025:
 
-**What NOT to build yet:**
-- ❌ Cross-tenant invitations (Phase 2 - later)
-- ❌ Calendar sync integrations (Phase 2 - later)
-- ❌ Commercial features (Phase 3)
+| Feature | Design Doc | Summary |
+|---------|------------|---------|
+| Calendar Sync | `docs/design/phase2-calendar-sync.md` | **Invite-based** - Family Hub sends invites via dedicated Outlook organizer account |
+| Contacts Sync | `docs/design/phase2-contacts-sync.md` | **User-owned** contacts with "Publish to Family" and smart typeahead lookup |
 
----
+### Key Architecture Decisions
 
-### ✅ 3. Development Methodology (NON-NEGOTIABLE)
+**Calendar System:**
+- Family Hub is **source of truth** for events
+- Dedicated **Outlook account** (familyhub-brown@outlook.com) sends all invites
+- Users can only **respond** (Accept/Decline/Tentative) from external calendars
+- **Amendments only in app** - external calendars are response-only
+- Responses sync back to app automatically
 
-**Code Delivery Process:**
-1. ✅ **Request existing code FIRST** - Never write without seeing current state
-2. ✅ **Assess thoroughly** - What needs preservation vs removal?
-3. ✅ **Provide COMPLETE file replacements** - Never snippets or partial code
-4. ✅ **Preserve existing functionality** - Only add necessary enhancements
-5. ✅ **Include file path** - Always state which file after code delivery
+**Contacts System:**
+- Each user **owns their own contacts** (not tenant-wide)
+- **"Publish to Family"** option to share contacts
+- **Smart lookup** when adding event invitees (typeahead search)
+- Search priority: Family members → Personal contacts → Family contacts → New email
 
-**Response Requirements:**
-- ✅ Use copyable code boxes with syntax highlighting
-- ✅ Provide thorough explanations before code
-- ✅ One feature at a time - Never build multiple features simultaneously
-- ✅ Stay focused on original requirements - No unexpected features
-- ✅ Surgical changes only - Minimal, targeted modifications
-- ✅ Reference previous work - Maintain consistency
+### Implementation Plan (What to Build Next)
 
-**Communication Style:**
-- ✅ Beginner-friendly (skill level 0)
-- ✅ Architecture focus - Explain WHY, not just HOW
-- ✅ No automated tools - Understanding over shortcuts
-- ✅ Patient explanations
+**Phase 1: Foundation (Do First)**
+1. Database migrations for new tables
+2. Core Contacts CRUD (user-owned)
+3. Publish to Family functionality
+
+**Phase 2: Smart Lookup**
+4. `/contacts/lookup` API endpoint
+5. SmartContactSearch component (typeahead)
+
+**Phase 3: Calendar Events**
+6. Organizer Account Setup (Outlook)
+7. Event creation with invites
+8. Response tracking
+
+**Phase 4: External Sync**
+9. Google Contacts sync
+10. User calendar sync (unified view)
 
 ---
 
-### ✅ 4. Tech Stack Reference
+## Family Configuration (Brown Family)
+
+**Family Members:**
+| Name | Role | Default Email | Calendars |
+|------|------|---------------|-----------|
+| James | Admin (Dad) | jamesbrownyork8@gmail.com | Google, Outlook, iCloud |
+| Nicola | Admin (Mum) | nicola@icloud.com | iCloud |
+| Tommy | Member (Child) | tommy@icloud.com | iCloud |
+| Harry | Member (Child, 7) | harry@icloud.com | iCloud (not active) |
+
+**Parental Controls:**
+- James & Nicola can view/manage Tommy & Harry's data
+- Harry's invite responses managed by parents
+
+---
+
+## Tech Stack Reference
 
 **Backend:**
 - Python 3.11+ | FastAPI | PostgreSQL 15
@@ -124,47 +116,9 @@ Working on: [describe what you're building]
 **Target Hardware:**
 - Raspberry Pi 5 (8GB) with touchscreen
 
-
 ---
 
-### ✅ 4b. Development Best Practices (CRITICAL)
-
-**These patterns were learned from bug fixes - ALWAYS follow them:**
-
-**API Data Naming:**
-- Backend returns snake_case (`start_time`, `end_time`, `all_day`)
-- Frontend MUST use snake_case when accessing API response data
-- DON'T convert to camelCase unnecessarily
-
-**SQLAlchemy Relationships:**
-- Always use `selectinload()` for nested relationships
-- Example: `selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)`
-- Without this, related data won't appear in API responses
-
-**Serializing Related Objects:**
-- Explicitly serialize nested objects (attendees, contacts, etc.)
-- ORM objects don't auto-serialize to JSON
-
-**Cross-Platform Icons:**
-- Use Ant Design icons (`<PlusOutlined />`) instead of emoji
-- Emoji characters don't render on Pi browser
-- Use inline SVG for custom icons
-
-**Docker Deployment:**
-- If changes don't appear after push, run on Pi:
-  ```bash
-  docker-compose build --no-cache && docker-compose up -d
-  ```
-
-**Form State:**
-- Always reset form state when opening for new entries
-- Pass ALL required fields (including relationships) when editing
-
-📖 **Full Reference:** See `CLAUDE.md` for detailed best practices
-
----
-
-### ✅ 5. Design System: "Horizon"
+## Design System: "Horizon"
 
 **Colors:**
 - Navy: `#1a2332` (primary dark)
@@ -178,39 +132,58 @@ Working on: [describe what you're building]
 - Tommy: `#00B140` (Liverpool green)
 - Harry: `#1D428A` (Leeds blue)
 
-**Responsive Breakpoints:**
-- Tablet: 768px+ (2-column layout)
-- Mobile: <768px (single column, bottom nav)
+---
+
+## Key Project Files
+
+### Documentation
+| File | Purpose |
+|------|---------|
+| `docs/ROADMAP.md` | **Master requirements and status** |
+| `docs/design/phase2-calendar-sync.md` | Calendar invite architecture |
+| `docs/design/phase2-contacts-sync.md` | User-owned contacts architecture |
+| `docs/technical-debt.md` | Known issues to fix |
+| `CLAUDE.md` | Development best practices |
+
+### Code Structure
+| Location | Contents |
+|----------|----------|
+| `backend/services/{feature}/routes.py` | API endpoints |
+| `backend/shared/models.py` | Database models |
+| `backend/services/{feature}/schemas.py` | Pydantic schemas |
+| `frontend/src/features/{feature}/` | React components |
+| `frontend/src/services/{feature}.ts` | API service calls |
+| `frontend/src/types/{feature}.ts` | TypeScript types |
 
 ---
 
-### ✅ 6. Real Data (Brown Family)
+## Development Best Practices (CRITICAL)
 
-**Tenant ID:**
-10000000-0000-0000-0000-000000000000
+**API Data Naming:**
+- Backend returns snake_case (`start_time`, `end_time`, `all_day`)
+- Frontend MUST use snake_case when accessing API response data
 
-**Family Members:**
-```typescript
-const FAMILY_MEMBERS = [
-  { id: '10000000-0000-0000-0000-000000000001', name: 'James', color: '#e30613' },
-  { id: '10000000-0000-0000-0000-000000000002', name: 'Nicola', color: '#fb7185' },
-  { id: '10000000-0000-0000-0000-000000000003', name: 'Tommy', color: '#00B140' },
-  { id: '10000000-0000-0000-0000-000000000004', name: 'Harry', color: '#1D428A' },
-];
+**SQLAlchemy Relationships:**
+- Always use `selectinload()` for nested relationships
+- Example: `selectinload(CalendarEvent.attendees).selectinload(EventAttendee.contact)`
 
-✅ 7. Key Constraints
-Project Constraints:
+**Cross-Platform Icons:**
+- Use Ant Design icons (`<PlusOutlined />`) instead of emoji
+- Emoji characters don't render on Pi browser
 
-💰 Zero development cost (no paid services during dev)
-🏗️ Multi-tenant from day 1 (Brown family = proof of concept)
-📱 Multi-device support (Pi, tablets, phones)
-📈 Progressive enhancement (core first, features methodically)
-🕐 Timezone: Europe/London (handle BST/GMT - subtract 1 hour for BST)
+**Docker Deployment:**
+- If changes don't appear after push:
+  ```bash
+  docker-compose build --no-cache && docker-compose up -d
+  ```
 
+---
 
-✅ 8. Common Commands
-Docker:
-bash# Start everything
+## Common Commands
+
+### Docker
+```bash
+# Start everything
 docker-compose up -d
 
 # View logs
@@ -225,173 +198,61 @@ docker-compose down
 
 # Fresh start (deletes data!)
 docker-compose down -v && docker-compose up -d
-Git:
-bashgit pull                    # Get latest
+```
+
+### Git
+```bash
+git pull                    # Get latest
 # ... make changes ...
 git add .
 git commit -m "message"
 git push                    # Send to GitHub
-Database:
-bash# Connect to database
+```
+
+### Database
+```bash
+# Connect to database
 docker-compose exec db psql -U familyhub -d familyhub
 
 # Inside psql:
 \dt                        # List tables
 SELECT * FROM calendar_events;
 \q                         # Quit
+```
 
-✅ 9. File Structure Quick Reference
-Backend:
+---
 
-API Routes: backend/services/{feature}/routes.py
-Database Models: backend/shared/models.py
-Schemas: backend/services/{feature}/schemas.py
+## What NOT to Do
 
-Frontend:
+**Never:**
+- Code snippets requiring manual insertion
+- "Here's what changed" summaries without full code
+- Multiple features built simultaneously
+- Unexpected features not requested
+- Iterative "let me fix that" approaches
 
-Feature Components: frontend/src/features/{feature}/
-API Services: frontend/src/services/{feature}.ts
-Types: frontend/src/types/{feature}.ts
+**Always:**
+- Request existing code first
+- Complete file replacements
+- One feature at a time
+- Explain architecture and decisions
+- Reference technical debt when relevant
 
-Documentation:
+---
 
-Technical Debt: docs/technical-debt.md
-Session Starter: docs/session-starter-checklist.md (this file)
+## End of Session Checklist
 
-
-✅ 10. Code Search Commands
-Find TODOs:
-bash# In VS Code: Ctrl+Shift+F
-# Search for: TODO(Phase
-Find Technical Debt:
-bash# Search for: TECHNICAL DEBT
-# Search for: FIXME
-# Search for: TD-0
-
-During Development Session
-When Hitting Issues:
-Backend Error:
-
-Check logs: docker-compose logs backend
-Look for red ERROR lines or Traceback
-Paste error to Claude with context
-
-Frontend Error:
-
-Open browser console (F12 → Console tab)
-Look for red errors
-Check Network tab for failed API calls
-Paste error to Claude with context
-
-Database Error:
-
-Check backend logs first
-Connect to database to inspect data
-Check if tables exist: \dt
-Paste SQL error to Claude
-
-
-Git Workflow:
-After Each Feature:
-bashgit add .
-git commit -m "feat: [what you added]"
-git push
-Commit Message Format:
-feat: Add calendar event creation
-fix: Resolve timezone conversion issue
-docs: Update technical debt register
-refactor: Improve form validation logic
-chore: Update dependencies
-
-End of Session Checklist
 Before ending the session:
+- [ ] All code changes saved
+- [ ] Changes committed to Git
+- [ ] Changes pushed to GitHub
+- [ ] Any new technical debt documented
+- [ ] Docker containers stopped (if needed)
+- [ ] Note where you left off for next session
 
- All code changes saved (Ctrl+S in VS Code)
- Changes committed to Git
- Changes pushed to GitHub
- Any new technical debt documented in docs/technical-debt.md
- Any TODOs added with proper references
- Docker containers stopped (if needed): docker-compose down
- Note where you left off for next session
+---
 
-
-What NOT to Do ❌
-Never:
-
-❌ Code snippets requiring manual insertion
-❌ "Here's what changed" summaries without full code
-❌ Multiple features built simultaneously
-❌ Unexpected features not requested
-❌ Responses assuming knowledge of file locations
-❌ Iterative "let me fix that" approaches
-
-Always:
-
-✅ Request existing code first
-✅ Complete file replacements
-✅ One feature at a time
-✅ Explain architecture and decisions
-✅ Reference technical debt when relevant
-
-
-Quick Phase Reference
-Phase 1: MVP Calendar ✅ COMPLETE
-
-Focus: Get calendar working perfectly
-Status: Complete
-
-Phase 1.5: Auth & Polish ✅ COMPLETE
-
-Focus: Authentication, mobile PWA
-Status: Complete
-Resolved: TD-001 (hard-coded tenant_id)
-
-Phase 2 (Current): Advanced Features 🔄 IN PROGRESS
-
-Focus: Shopping, Tasks, Meal Planning, Relationships
-Duration: 4-6 weeks
-Completed: Shopping list + Categories + Smart behavior
-Remaining: Tasks, Meals, TD-002, TD-003, TD-004
-
-Phase 3 (Future): Commercial SaaS
-
-Focus: Production deployment, scaling
-Duration: 8-12 weeks
-Must Fix: All critical debt
-
-
-Additional Reference Documents
-Full Documentation:
-
-docs/Family Hub - Requirements Document.md - Complete requirements
-docs/Family Hub - Project Initialization Guide.md - Setup guide
-docs/Spin-off Project - DIY Bluetooth Item Tracker.md - Future Tile integration
-
-When to Reference:
-
-Requirements doc: When planning features or unclear about scope
-Initialization guide: When setting up new environment
-Bluetooth tracker: When discussing Phase 2 integrations
-
-
-Document Version: 2.0
-Last Updated: December 21, 2025
-Next Review: Phase 2 completion
-Owner: James Brown
-
-Template: New Session Start Message
-Copy/paste this to start a new session:
-I'm continuing work on Family Hub (DIY Raspberry Pi family organization system).
-
-Please review these documents:
-1. docs/technical-debt.md
-2. docs/session-starter-checklist.md
-
-Current Status:
-- Phase: Phase 2 - Advanced Features
-- Working on: [describe current task]
-- Last completed: [what you finished last session]
-
-Today's goal: [what you want to accomplish]
-
-Ready when you are!
+**Document Version:** 3.0
+**Last Updated:** December 27, 2025
+**Next Review:** After Phase 2 completion
+**Owner:** James Brown

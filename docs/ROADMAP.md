@@ -7,6 +7,60 @@
 
 ---
 
+## Current Status & Next Steps
+
+### Status Summary
+```
+Phase 1 (Calendar MVP)     ✅ COMPLETE (November 2025)
+Phase 1.5 (Authentication) ✅ COMPLETE (December 2025)
+Phase 2 (Integration)      🔄 IN PROGRESS
+  ├── Shopping Lists       ✅ COMPLETE
+  ├── Basic Contacts       ✅ COMPLETE
+  └── Calendar/Contact Sync 📋 DESIGNED - Ready to implement
+```
+
+### Architecture Decisions (December 27, 2025)
+
+Major architectural changes were made to the calendar and contacts sync approach:
+
+| Feature | Original Design | New Design |
+|---------|----------------|------------|
+| Calendar Sync | Bidirectional sync with external calendars | **Invite-based** - Family Hub is source of truth |
+| Event Editing | Edit anywhere, sync conflicts | Edit **only in app**, external calendars respond only |
+| Organizer | N/A | Dedicated **Outlook account** sends all invites |
+| Contacts | Tenant-wide contacts | **User-specific** contacts with "Publish to Family" |
+| Invitee Selection | Manual email entry | **Smart lookup** with typeahead search |
+
+### Design Documents
+
+| Document | Purpose | Location |
+|----------|---------|----------|
+| Calendar Sync Design | Invite-based calendar, response tracking, organizer account | `docs/design/phase2-calendar-sync.md` |
+| Contacts Sync Design | User-owned contacts, publish to family, smart lookup | `docs/design/phase2-contacts-sync.md` |
+| Alexa Integration Design | Shopping list voice integration | `docs/design/phase2-alexa-integration.md` |
+
+### Implementation Plan (Next Steps)
+
+**Foundation (Build First):**
+1. Database migrations for new tables (contacts, event_invites, parental_controls, etc.)
+2. Core Contacts CRUD (user-owned contacts)
+3. Publish to Family functionality
+
+**Smart Lookup:**
+4. `/contacts/lookup` API endpoint
+5. SmartContactSearch component (typeahead)
+
+**Calendar Events:**
+6. Organizer Account Setup (Outlook)
+7. Event creation with invites
+8. Response tracking
+
+**External Sync:**
+9. Google Contacts sync
+10. User calendar sync (unified view)
+
+---
+
 ## Project Vision
 
 Build a comprehensive, customizable family organization system as an open-source alternative to commercial products. Start with proof-of-concept for Brown family, architect for future multi-tenant SaaS scaling.
@@ -94,15 +148,6 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 | REQ-1.042 | GitHub repository | ✅ Done |
 | REQ-1.043 | Pi auto-deploy via GitHub Actions | ✅ Done |
 
-### Success Criteria ✅ All Met
-
-- ✅ Brown family can create calendar events
-- ✅ Events display on tablet landing page
-- ✅ Events can be edited and deleted
-- ✅ Calendar works reliably
-- ✅ Family actively using it
-- ✅ No critical bugs or data loss
-
 ---
 
 ## Phase 1.5: Authentication ✅ COMPLETE
@@ -140,20 +185,13 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 | REQ-1.5.019 | Touch-friendly UI elements | ✅ Done |
 | REQ-1.5.020 | Toast notifications (Ant Design message) | ✅ Done |
 
-### Success Criteria ✅ All Met
-
-- ✅ Authentication working (login, logout)
-- ✅ Multiple users per tenant supported
-- ✅ TD-001 resolved (dynamic tenant_id)
-- ✅ Mobile views working
-- ✅ No authentication security issues
-
 ---
 
 ## Phase 2: Integration & Sync 🔄 IN PROGRESS
 
 **Goal:** External integrations and unified data across platforms
 **Status:** In Progress (Started December 2025)
+**Design Documents:** `docs/design/phase2-calendar-sync.md`, `docs/design/phase2-contacts-sync.md`
 
 ### 2.0 Mobile Access
 
@@ -166,13 +204,13 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 | REQ-2.005 | PWA installable on mobile | ❌ Not started |
 | REQ-2.006 | Offline shopping list access | ❌ Not started |
 
-### 2.1 Contacts & Address Book
+### 2.1 Contacts (User-Owned) - ARCHITECTURE UPDATED
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| REQ-2.007 | External contacts table (non-family members) | ✅ Done |
-| REQ-2.008 | Contact create form | ✅ Done |
-| REQ-2.009 | Contact edit form | ✅ Done |
+| REQ-2.007 | User-owned contacts table (not tenant-wide) | 📋 Designed |
+| REQ-2.008 | Contact create form | ✅ Done (needs migration) |
+| REQ-2.009 | Contact edit form | ✅ Done (needs migration) |
 | REQ-2.010 | Contact delete with confirmation | ✅ Done |
 | REQ-2.011 | Contact address/postcode search | ✅ Done |
 | REQ-2.012 | Contact phone with country code selector | ✅ Done |
@@ -181,73 +219,92 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 | REQ-2.015 | Contact anniversary tracking | ✅ Done |
 | REQ-2.016 | Contact favorites | ✅ Done |
 | REQ-2.017 | Contact search | ✅ Done |
-| REQ-2.018 | Event attendees (link contacts to events) | ✅ Done |
-| REQ-2.019 | Email-only guests (non-contacts) | ✅ Done |
-| REQ-2.020 | RSVP tracking (pending/accepted/declined/tentative) | ✅ Done |
-| REQ-2.021 | Attendee display in event details | ✅ Done |
-| REQ-2.022 | RSVP update functionality | ✅ Done |
-| REQ-2.023 | Sync from iCloud Contacts | ❌ Not started |
-| REQ-2.024 | Sync from Google Contacts | ❌ Not started |
-| REQ-2.025 | Sync from Yahoo Contacts | ❌ Not started |
+| REQ-2.018 | "Publish to Family" feature | 📋 Designed |
+| REQ-2.019 | Family contacts shared bucket | 📋 Designed |
+| REQ-2.020 | Smart contact lookup (typeahead) | 📋 Designed |
+| REQ-2.021 | Prompt to create contact when inviting new email | 📋 Designed |
+| REQ-2.022 | My Contacts vs Family Contacts tabs | 📋 Designed |
+| REQ-2.023 | Sync from Google Contacts (user-specific) | 📋 Designed |
+| REQ-2.024 | Sync from iCloud Contacts (user-specific) | 📋 Designed |
+| REQ-2.025 | Sync from Outlook Contacts (user-specific) | 📋 Designed |
 
-### 2.2 Calendar Sync
-
-| ID | Requirement | Status |
-|----|-------------|--------|
-| REQ-2.026 | Two-way Google Calendar sync | ❌ Not started |
-| REQ-2.027 | Two-way iCloud Calendar sync | ❌ Not started |
-| REQ-2.028 | Two-way Outlook Calendar sync | ❌ Not started |
-| REQ-2.029 | Calendar sync conflict detection | ❌ Not started |
-| REQ-2.030 | Unified work + personal calendar view | ❌ Not started |
-| REQ-2.031 | External calendar ID tracking for sync | ❌ Not started |
-| REQ-2.032 | Calendar source identification (Google/iCloud/manual) | ❌ Not started |
-
-### 2.3 Shopping Lists
+### 2.2 Calendar Sync - ARCHITECTURE UPDATED
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| REQ-2.033 | Default shopping list per tenant | ✅ Done |
-| REQ-2.034 | Add shopping item | ✅ Done |
-| REQ-2.035 | Edit shopping item | ✅ Done |
-| REQ-2.036 | Delete shopping item | ✅ Done |
-| REQ-2.037 | Item categories with icons | ✅ Done |
-| REQ-2.038 | Check-off items (toggle) | ✅ Done |
-| REQ-2.039 | Item quantity support | ✅ Done |
-| REQ-2.040 | Item unit support (kg, pack, bunch) | ✅ Done |
-| REQ-2.041 | Shopping list full page (/shopping route) | ✅ Done |
-| REQ-2.042 | ShoppingSnapshot dashboard widget | ✅ Done |
-| REQ-2.043 | Quick-add from dashboard | ✅ Done |
-| REQ-2.044 | Items grouped by category | ✅ Done |
-| REQ-2.045 | Per-tenant custom categories (database-backed) | ✅ Done |
-| REQ-2.046 | Custom category emoji icons | ✅ Done |
-| REQ-2.047 | Custom category colors | ✅ Done |
-| REQ-2.048 | Keyword-based auto-categorization | ✅ Done |
-| REQ-2.049 | Category reordering | ✅ Done |
-| REQ-2.050 | Complete Shop (bulk mark all checked) | ✅ Done |
-| REQ-2.051 | 24-hour auto-hide for checked items | ✅ Done |
-| REQ-2.052 | Duplicate detection with confirmation | ✅ Done |
-| REQ-2.053 | Duplicate merge (add quantities together) | ✅ Done |
-| REQ-2.054 | Track who added each item | ✅ Done |
-| REQ-2.055 | Track item source (manual/alexa/recipe) | ✅ Done |
-| REQ-2.056 | Mobile-optimized list (large touch targets) | ✅ Done |
+| REQ-2.026 | Dedicated Outlook organizer account | 📋 Designed |
+| REQ-2.027 | Family Hub as source of truth for events | 📋 Designed |
+| REQ-2.028 | Event invites table (tracks responses) | 📋 Designed |
+| REQ-2.029 | Send invites to all invitees via organizer | 📋 Designed |
+| REQ-2.030 | Response tracking (Accept/Decline/Tentative) | 📋 Designed |
+| REQ-2.031 | Response sync from organizer calendar | 📋 Designed |
+| REQ-2.032 | Amendments only in app (external = response only) | 📋 Designed |
+| REQ-2.033 | User email accounts table | 📋 Designed |
+| REQ-2.034 | Default email per user for invites | 📋 Designed |
+| REQ-2.035 | User connects own calendars (Google/iCloud/Outlook) | 📋 Designed |
+| REQ-2.036 | Unified calendar view (Hub + external events) | 📋 Designed |
+| REQ-2.037 | External events read-only in app | 📋 Designed |
+| REQ-2.038 | Event source badges (Hub/Google/iCloud) | 📋 Designed |
+| REQ-2.039 | FamilyHubEventId extended property for tracking | 📋 Designed |
 
-### 2.4 Alexa Integration
+### 2.3 Parental Controls
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| REQ-2.057 | Add shopping items via Alexa voice | ❌ Not started |
-| REQ-2.058 | Alexa Shopping List API integration | ❌ Not started |
-| REQ-2.059 | One-way sync (Alexa → Family Hub) | ❌ Not started |
-| REQ-2.060 | Alexa skill development | ❌ Not started |
-| REQ-2.061 | Calendar queries via Alexa | ❌ Not started |
-| REQ-2.062 | Two-way Alexa sync | ❌ Not started |
+| REQ-2.040 | Parent-child relationship table | 📋 Designed |
+| REQ-2.041 | Parents can view children's calendars | 📋 Designed |
+| REQ-2.042 | Parents can view children's contacts | 📋 Designed |
+| REQ-2.043 | Parents can respond to invites for minors | 📋 Designed |
+| REQ-2.044 | Parents can manage children's contacts | 📋 Designed |
+
+### 2.4 Shopping Lists ✅ COMPLETE
+
+| ID | Requirement | Status |
+|----|-------------|--------|
+| REQ-2.045 | Default shopping list per tenant | ✅ Done |
+| REQ-2.046 | Add shopping item | ✅ Done |
+| REQ-2.047 | Edit shopping item | ✅ Done |
+| REQ-2.048 | Delete shopping item | ✅ Done |
+| REQ-2.049 | Item categories with icons | ✅ Done |
+| REQ-2.050 | Check-off items (toggle) | ✅ Done |
+| REQ-2.051 | Item quantity support | ✅ Done |
+| REQ-2.052 | Item unit support (kg, pack, bunch) | ✅ Done |
+| REQ-2.053 | Shopping list full page (/shopping route) | ✅ Done |
+| REQ-2.054 | ShoppingSnapshot dashboard widget | ✅ Done |
+| REQ-2.055 | Quick-add from dashboard | ✅ Done |
+| REQ-2.056 | Items grouped by category | ✅ Done |
+| REQ-2.057 | Per-tenant custom categories (database-backed) | ✅ Done |
+| REQ-2.058 | Custom category emoji icons | ✅ Done |
+| REQ-2.059 | Custom category colors | ✅ Done |
+| REQ-2.060 | Keyword-based auto-categorization | ✅ Done |
+| REQ-2.061 | Category reordering | ✅ Done |
+| REQ-2.062 | Complete Shop (bulk mark all checked) | ✅ Done |
+| REQ-2.063 | 24-hour auto-hide for checked items | ✅ Done |
+| REQ-2.064 | Duplicate detection with confirmation | ✅ Done |
+| REQ-2.065 | Duplicate merge (add quantities together) | ✅ Done |
+| REQ-2.066 | Track who added each item | ✅ Done |
+| REQ-2.067 | Track item source (manual/alexa/recipe) | ✅ Done |
+| REQ-2.068 | Mobile-optimized list (large touch targets) | ✅ Done |
+
+### 2.5 Alexa Integration
+
+| ID | Requirement | Status |
+|----|-------------|--------|
+| REQ-2.069 | Add shopping items via Alexa voice | ❌ Not started |
+| REQ-2.070 | Alexa Shopping List API integration | ❌ Not started |
+| REQ-2.071 | One-way sync (Alexa → Family Hub) | ❌ Not started |
+| REQ-2.072 | Alexa skill development | ❌ Not started |
+| REQ-2.073 | Calendar queries via Alexa | ❌ Not started |
+| REQ-2.074 | Two-way Alexa sync | ❌ Not started |
 
 ### Success Criteria
 
 Phase 2 is complete when:
-- ⬜ Address book syncing with at least one provider
-- ⬜ Calendar syncing with at least one provider
-- ⬜ Alexa can add items to shopping list
+- ⬜ User-owned contacts with publish to family working
+- ⬜ Smart contact lookup for event invitations
+- ⬜ Calendar invites sending via organizer account
+- ⬜ Response tracking from external calendars
+- ⬜ At least one external provider sync working (Google)
 - ⬜ Family actively using integrations
 
 ---
@@ -400,15 +457,6 @@ Phase 2 is complete when:
 | REQ-3.097 | Packing list category | ❌ Not started |
 | REQ-3.098 | Multiple list support (grocery, household, etc.) | ❌ Not started |
 
-### Success Criteria
-
-Phase 3 is complete when:
-- ⬜ Tasks/chores feature working
-- ⬜ Meal planning basic functionality
-- ⬜ Weather widget functional
-- ⬜ Kitchen timers working
-- ⬜ Can invite external family to events
-
 ---
 
 ## Phase 4: Polish & Mobile
@@ -473,15 +521,6 @@ Phase 3 is complete when:
 |----|-------------|--------|
 | REQ-4.027 | Avatar photos for users (not just initials) | ❌ Not started |
 | REQ-4.028 | Avatar photos for contacts | ❌ Not started |
-| REQ-4.029 | Per-user address book (vs tenant-wide) | ❌ Not started |
-
-### Success Criteria
-
-Phase 4 is complete when:
-- ⬜ Mobile apps in App Store / Play Store
-- ⬜ Push notifications working
-- ⬜ Photo slideshow functional
-- ⬜ Analytics providing useful insights
 
 ---
 
@@ -570,30 +609,19 @@ Phase 4 is complete when:
 | REQ-5.044 | Phone battery status display | ❌ Not started |
 | REQ-5.045 | Tile Tracker integration | ❌ Not started |
 
-### Success Criteria
-
-Phase 5 is complete when:
-- ⬜ 100+ paying customers
-- ⬜ 99.9% uptime achieved
-- ⬜ Revenue exceeds infrastructure costs
-
 ---
 
 ## Backlog (Unscheduled)
 
-Items identified but not yet prioritized into a phase.
-
 | ID | Requirement | Notes |
 |----|-------------|-------|
-| REQ-B.001 | Move project files from OneDrive to local | Eliminate sync issues |
+| REQ-B.001 | ~~Move project files from OneDrive to local~~ | ✅ Done (Dec 27) |
 | REQ-B.002 | Extended family viewer role (grandparents) | View-only access |
 | REQ-B.003 | Guest/viewer role | Limited interaction |
 
 ---
 
 ## Out of Scope
-
-Features explicitly excluded from the project.
 
 | Feature | Reason |
 |---------|--------|
@@ -623,8 +651,8 @@ Features explicitly excluded from the project.
 - Performance at scale → Load testing, optimization
 
 **Medium Priority:**
-- Calendar sync reliability → Extensive testing with providers
-- Database performance → Proper indexing, query optimization
+- Calendar invite delivery reliability → Test with multiple providers
+- OAuth token refresh → Proper error handling, retry logic
 - Raspberry Pi hardware failure → Spare hardware, recovery docs
 
 ### Business Risks (Phase 5)
@@ -640,43 +668,29 @@ Features explicitly excluded from the project.
 
 ---
 
-## Decision Points
+## Family Configuration (Brown Family)
 
-Major decisions that will affect roadmap:
+**Family Members:**
+| Name | Role | Default Email | Age |
+|------|------|---------------|-----|
+| James | Admin (Dad) | jamesbrownyork8@gmail.com | Adult |
+| Nicola | Admin (Mum) | nicola@icloud.com | Adult |
+| Tommy | Member (Child) | tommy@icloud.com | Minor |
+| Harry | Member (Child) | harry@icloud.com | 7 |
 
-### After Phase 2:
-**Decision:** Proceed to Phase 3 core features or refine integrations?
-**Criteria:** Are calendar/contacts syncing reliably? Is Alexa integration useful?
+**Parental Controls:**
+- James & Nicola can view/manage Tommy & Harry's calendars and contacts
+- Harry's invite responses managed by parents
 
-### After Phase 4:
-**Decision:** Launch commercial SaaS or remain open-source personal project?
-**Criteria:** Beta tester feedback, market demand, time/resources available
-
----
-
-## Requirement Statistics
-
-| Phase | Total | Complete | Remaining |
-|-------|-------|----------|-----------|
-| Phase 1 | 43 | 43 | 0 |
-| Phase 1.5 | 20 | 20 | 0 |
-| Phase 2 | 62 | 34 | 28 |
-| Phase 3 | 98 | 0 | 98 |
-| Phase 4 | 29 | 0 | 29 |
-| Phase 5 | 45 | 0 | 45 |
-| Backlog | 3 | 0 | 3 |
-| **TOTAL** | **300** | **97** | **203** |
+**External Accounts:**
+- James: Google, Outlook, iCloud
+- Nicola: iCloud
+- Tommy: iCloud
+- Harry: iCloud (not active)
 
 ---
 
-## Related Documents
-
-- `docs/technical-debt.md` - Active technical debt tracking
-- `docs/session-starter-checklist.md` - Daily development checklist
-
----
-
-**Document Version:** 4.0
+**Document Version:** 3.0
 **Last Updated:** December 27, 2025
-**Next Review:** Phase 2 completion
+**Next Review:** After Phase 2 completion
 **Owner:** James Brown
