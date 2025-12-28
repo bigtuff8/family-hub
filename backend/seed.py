@@ -7,12 +7,14 @@ Creates:
 - 4 family members (James, Nicola, Tommy, Harry)
 - Default shopping list
 - Sample calendar events
+- Phase 2: User email accounts
+- Phase 2: Parental controls (James & Nicola control Tommy & Harry)
 
 Usage: docker-compose exec backend python seed.py
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 from uuid import UUID
 
 from sqlalchemy import select
@@ -21,7 +23,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decimal import Decimal
 
 from shared.database import engine, AsyncSessionLocal
-from shared.models import Tenant, User, CalendarEvent, ShoppingList, ShoppingItem
+from shared.models import (
+    Tenant, User, CalendarEvent, ShoppingList, ShoppingItem,
+    UserEmailAccount, ParentalControl, Contact,
+)
 from services.auth.security import get_password_hash
 from services.shopping.utils import normalize_item_name, categorize_item
 
@@ -266,6 +271,204 @@ async def seed_shopping_list(db: AsyncSession, tenant: Tenant, users: dict[str, 
     await db.commit()
 
 
+async def seed_user_email_accounts(db: AsyncSession, tenant: Tenant, users: dict[str, User]) -> None:
+    """Create default email accounts for each user (Phase 2)."""
+    # Check if we already have email accounts
+    result = await db.execute(
+        select(UserEmailAccount).where(UserEmailAccount.tenant_id == tenant.id)
+    )
+    existing = result.scalars().first()
+    if existing:
+        print("  User email accounts already exist, skipping...")
+        return
+
+    # Real email addresses from family configuration
+    email_accounts = [
+        # James has multiple accounts
+        {
+            "user_key": "james",
+            "email_address": "jamesbrownyork8@gmail.com",
+            "provider": "google",
+            "display_name": "Personal Gmail",
+            "is_default": True,
+        },
+        # Nicola's iCloud
+        {
+            "user_key": "nicola",
+            "email_address": "nicola@icloud.com",
+            "provider": "icloud",
+            "display_name": "iCloud",
+            "is_default": True,
+        },
+        # Tommy's iCloud
+        {
+            "user_key": "tommy",
+            "email_address": "tommy@icloud.com",
+            "provider": "icloud",
+            "display_name": "iCloud",
+            "is_default": True,
+        },
+        # Harry's iCloud (age 7, not active but set up for invites)
+        {
+            "user_key": "harry",
+            "email_address": "harry@icloud.com",
+            "provider": "icloud",
+            "display_name": "iCloud",
+            "is_default": True,
+        },
+    ]
+
+    for data in email_accounts:
+        user = users[data["user_key"]]
+        account = UserEmailAccount(
+            user_id=user.id,
+            tenant_id=tenant.id,
+            email_address=data["email_address"],
+            provider=data["provider"],
+            display_name=data["display_name"],
+            is_default=data["is_default"],
+            is_verified=True,  # Pre-verified for dev
+            receive_invites=True,
+        )
+        db.add(account)
+        print(f"  Created email account: {data['email_address']} for {user.name}")
+
+    await db.commit()
+
+
+async def seed_parental_controls(db: AsyncSession, tenant: Tenant, users: dict[str, User]) -> None:
+    """Create parental control relationships (Phase 2)."""
+    # Check if we already have parental controls
+    result = await db.execute(
+        select(ParentalControl).where(ParentalControl.tenant_id == tenant.id)
+    )
+    existing = result.scalars().first()
+    if existing:
+        print("  Parental controls already exist, skipping...")
+        return
+
+    # Parents can control both children
+    parental_relationships = [
+        # James controls Tommy
+        {"parent_key": "james", "child_key": "tommy"},
+        # James controls Harry
+        {"parent_key": "james", "child_key": "harry"},
+        # Nicola controls Tommy
+        {"parent_key": "nicola", "child_key": "tommy"},
+        # Nicola controls Harry
+        {"parent_key": "nicola", "child_key": "harry"},
+    ]
+
+    for data in parental_relationships:
+        parent = users[data["parent_key"]]
+        child = users[data["child_key"]]
+
+        control = ParentalControl(
+            tenant_id=tenant.id,
+            parent_user_id=parent.id,
+            child_user_id=child.id,
+            can_view_calendar=True,
+            can_view_contacts=True,
+            can_manage_calendar=True,
+            can_manage_contacts=True,
+            can_respond_on_behalf=True,
+        )
+        db.add(control)
+        print(f"  Created parental control: {parent.name} -> {child.name}")
+
+    await db.commit()
+
+
+async def seed_sample_contacts(db: AsyncSession, tenant: Tenant, users: dict[str, User]) -> None:
+    """Create sample contacts for testing (Phase 2)."""
+    # Check if we already have contacts
+    result = await db.execute(
+        select(Contact).where(Contact.tenant_id == tenant.id)
+    )
+    existing = result.scalars().first()
+    if existing:
+        print("  Contacts already exist, skipping...")
+        return
+
+    # Sample contacts with user ownership
+    contacts_data = [
+        # James's contacts
+        {
+            "owner_key": "james",
+            "first_name": "Margaret",
+            "last_name": "Brown",
+            "display_name": "Grandma (Margaret)",
+            "nickname": "Grandma",
+            "primary_email": "grandma.brown@email.com",
+            "birthday": date(1950, 3, 15),
+            "is_published_to_family": True,  # Shared with family
+        },
+        {
+            "owner_key": "james",
+            "first_name": "Robert",
+            "last_name": "Brown",
+            "display_name": "Grandpa (Robert)",
+            "nickname": "Grandpa",
+            "primary_email": "grandpa.brown@email.com",
+            "birthday": date(1948, 7, 22),
+            "is_published_to_family": True,  # Shared with family
+        },
+        {
+            "owner_key": "james",
+            "first_name": "Mike",
+            "last_name": "Thompson",
+            "display_name": "Mike (Work)",
+            "primary_email": "mike.t@company.com",
+            "company": "TechCorp",
+            "is_published_to_family": False,  # Personal work contact
+        },
+        # Nicola's contacts
+        {
+            "owner_key": "nicola",
+            "first_name": "Sarah",
+            "last_name": "Mitchell",
+            "display_name": "Aunt Sarah",
+            "nickname": "Aunt Sarah",
+            "primary_email": "sarah.mitchell@email.com",
+            "birthday": date(1975, 11, 8),
+            "is_published_to_family": True,  # Shared with family
+        },
+        {
+            "owner_key": "nicola",
+            "first_name": "Emma",
+            "last_name": "Wilson",
+            "display_name": "Emma (Book Club)",
+            "primary_email": "emma.wilson@email.com",
+            "is_published_to_family": False,  # Personal contact
+        },
+    ]
+
+    james = users["james"]
+
+    for data in contacts_data:
+        owner = users[data["owner_key"]]
+        contact = Contact(
+            tenant_id=tenant.id,
+            owner_user_id=owner.id,
+            first_name=data["first_name"],
+            last_name=data.get("last_name"),
+            display_name=data["display_name"],
+            nickname=data.get("nickname"),
+            primary_email=data.get("primary_email"),
+            birthday=data.get("birthday"),
+            company=data.get("company"),
+            is_published_to_family=data.get("is_published_to_family", False),
+            published_at=datetime.now(timezone.utc) if data.get("is_published_to_family") else None,
+            published_by_user_id=owner.id if data.get("is_published_to_family") else None,
+            source="manual",
+        )
+        db.add(contact)
+        pub_status = " [Published to Family]" if data.get("is_published_to_family") else ""
+        print(f"  Created contact: {data['display_name']} (owned by {owner.name}){pub_status}")
+
+    await db.commit()
+
+
 async def main():
     """Run the seed script."""
     print("\n" + "=" * 50)
@@ -285,6 +488,15 @@ async def main():
         print("\nCreating shopping list...")
         await seed_shopping_list(db, tenant, users)
 
+        print("\nCreating user email accounts (Phase 2)...")
+        await seed_user_email_accounts(db, tenant, users)
+
+        print("\nCreating parental controls (Phase 2)...")
+        await seed_parental_controls(db, tenant, users)
+
+        print("\nCreating sample contacts (Phase 2)...")
+        await seed_sample_contacts(db, tenant, users)
+
     print("\n" + "=" * 50)
     print("Seeding complete!")
     print("=" * 50)
@@ -295,6 +507,10 @@ async def main():
     print(f"  - nicola@brown.family (parent)")
     print(f"  - tommy@brown.family (child)")
     print(f"  - harry@brown.family (child)")
+    print(f"\nPhase 2 Data:")
+    print(f"  - Email accounts configured with real addresses")
+    print(f"  - Parental controls: James & Nicola -> Tommy & Harry")
+    print(f"  - Sample contacts with 'Publish to Family' examples")
     print()
 
 
