@@ -135,6 +135,21 @@ docker-compose up -d frontend
 
 ---
 
+### 6a. File Editing with Docker Running
+
+**Rule:** When Edit tool fails with "file unexpectedly modified", use PowerShell immediately
+
+```powershell
+# Use PowerShell -replace for quick edits
+powershell -Command "(Get-Content 'path/to/file') -replace 'old', 'new' | Set-Content 'path/to/file'"
+```
+
+**Why:** Docker volume mounts (`./frontend:/app`, `./backend:/app`) + Vite hot reload can touch files immediately after writes, causing Edit tool failures. Don't waste time with Task sub-agents - use PowerShell directly.
+
+**Windows Defender:** `C:\Projects\` is excluded from real-time scanning to reduce file locking.
+
+---
+
 ### 7. Form State Management
 
 **Rule:** Always reset form state when opening for new entries
@@ -271,7 +286,7 @@ Working on: [describe task]
 
 ---
 
-**Document Version:** 1.1
+**Document Version:** 1.2
 **Created:** December 23, 2025
 **Last Updated:** December 28, 2025
 **Owner:** James Brown
