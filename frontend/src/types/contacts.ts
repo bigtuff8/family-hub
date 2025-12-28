@@ -1,6 +1,11 @@
 /**
  * Contact types for Family Hub
  * Location: frontend/src/types/contacts.ts
+ *
+ * Phase 2 Updates:
+ * - User-owned contacts (owner_user_id)
+ * - Publish to Family functionality
+ * - Smart lookup for invitee selection
  */
 
 // ============ Phone & Email Types ============
@@ -33,6 +38,14 @@ export interface ContactEmailCreate {
   is_primary?: boolean;
 }
 
+// ============ Owner Info (Phase 2) ============
+
+export interface OwnerInfo {
+  id: string;
+  name: string;
+  color: string | null;
+}
+
 // ============ Contact Types ============
 
 export interface ContactSummary {
@@ -45,6 +58,11 @@ export interface ContactSummary {
   birthday: string | null; // ISO date string
   is_favorite: boolean;
   photo_url: string | null;
+  // Phase 2: Ownership and sharing
+  owner_user_id: string;
+  owner: OwnerInfo | null;
+  is_published_to_family: boolean;
+  source: string;
 }
 
 export interface Contact {
@@ -81,8 +99,18 @@ export interface Contact {
   notes: string | null;
   photo_url: string | null;
 
+  // Phase 2: Ownership
+  owner_user_id: string;
+  owner: OwnerInfo | null;
+
+  // Phase 2: Family sharing
+  is_published_to_family: boolean;
+  published_at: string | null;
+  published_by_user_id: string | null;
+
   // Sync info
-  external_source: string | null;
+  source: string;
+  external_id: string | null;
   last_synced_at: string | null;
 
   // Status
@@ -119,6 +147,7 @@ export interface ContactCreate {
   notes?: string | null;
   photo_url?: string | null;
   is_favorite?: boolean;
+  is_published_to_family?: boolean; // Phase 2
   phones?: ContactPhoneCreate[];
   emails?: ContactEmailCreate[];
 }
@@ -172,3 +201,58 @@ export interface UpcomingBirthday {
 export interface UpcomingBirthdaysResponse {
   birthdays: UpcomingBirthday[];
 }
+
+// ============ Publish to Family (Phase 2) ============
+
+export interface PublishToFamilyRequest {
+  publish: boolean;
+}
+
+export interface PublishToFamilyResponse {
+  id: string;
+  is_published_to_family: boolean;
+  published_at: string | null;
+  message: string;
+}
+
+// ============ Smart Lookup (Phase 2) ============
+
+export type LookupResultType = 'family_user' | 'contact' | 'email_suggestion';
+
+export interface FamilyUserResult {
+  type: 'family_user';
+  id: string;
+  display_name: string;
+  email: string | null;
+  avatar_url: string | null;
+  role: string;
+  color: string | null;
+  is_minor: boolean;
+}
+
+export interface ContactResult {
+  type: 'contact';
+  id: string;
+  display_name: string;
+  email: string | null;
+  avatar_url: string | null;
+  source: 'personal' | 'family';
+  owner_name: string | null;
+}
+
+export interface EmailSuggestion {
+  type: 'email_suggestion';
+  email: string;
+  prompt: string;
+}
+
+export type LookupResult = FamilyUserResult | ContactResult | EmailSuggestion;
+
+export interface SmartLookupResponse {
+  query: string;
+  results: LookupResult[];
+}
+
+// ============ Contact View Options (Phase 2) ============
+
+export type ContactView = 'mine' | 'family' | 'all';

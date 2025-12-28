@@ -1,0 +1,172 @@
+/**
+ * SmartContactSearch styles
+ * Location: frontend/src/components/SmartContactSearch.css
+ */
+
+.smart-contact-search {
+  position: relative;
+  width: 100%;
+}
+
+.smart-contact-search .ant-input-affix-wrapper {
+  border-radius: 8px;
+}
+
+.smart-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.smart-search-empty {
+  padding: 24px;
+  text-align: center;
+}
+
+/* Result Groups */
+.result-group {
+  padding: 8px 0;
+}
+
+.result-group:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.result-group-header {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8c8c8c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Result Items */
+.smart-search-result {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.smart-search-result:hover,
+.smart-search-result.highlighted {
+  background-color: #f5f5f5;
+}
+
+.smart-search-result.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.smart-search-result.disabled:hover {
+  background-color: transparent;
+}
+
+.result-avatar {
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-name {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  color: #262626;
+  font-size: 14px;
+}
+
+.result-email {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-selected {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Scrollbar styling */
+.smart-search-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.smart-search-dropdown::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.smart-search-dropdown::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+.smart-search-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .smart-search-dropdown {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+
+  .result-group:not(:last-child) {
+    border-bottom-color: #303030;
+  }
+
+  .result-group-header {
+    color: #8c8c8c;
+  }
+
+  .smart-search-result:hover,
+  .smart-search-result.highlighted {
+    background-color: #2a2a2a;
+  }
+
+  .result-name {
+    color: #e6e6e6;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .smart-search-dropdown {
+    max-height: 300px;
+  }
+
+  .smart-search-result {
+    padding: 12px 12px;
+  }
+
+  .result-group-header {
+    padding: 8px 12px;
+  }
+
+  .result-name .ant-tag {
+    display: none;
+  }
+}
