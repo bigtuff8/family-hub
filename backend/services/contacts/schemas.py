@@ -1,10 +1,15 @@
 """
 Contacts Pydantic schemas
 Location: backend/services/contacts/schemas.py
+
+Phase 2 Updates:
+- User-owned contacts (owner_user_id)
+- "Publish to Family" functionality
+- Smart lookup for invitee selection
 """
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, EmailStr
@@ -54,10 +59,22 @@ class ContactEmailResponse(ContactEmailBase):
         from_attributes = True
 
 
+# ============ Owner Info ============
+
+class OwnerInfo(BaseModel):
+    """Minimal user info for contact ownership"""
+    id: UUID
+    name: str
+    color: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ============ Contact Request Schemas ============
 
 class ContactCreate(BaseModel):
-    """Create a new contact"""
+    """Create a new contact (owned by current user)"""
     # Core fields
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
@@ -91,6 +108,9 @@ class ContactCreate(BaseModel):
 
     # Status
     is_favorite: bool = False
+
+    # Family sharing (Phase 2)
+    is_published_to_family: bool = False
 
     # Additional phones/emails (optional on create)
     phones: list[ContactPhoneCreate] = Field(default_factory=list)
@@ -142,6 +162,12 @@ class ContactSummary(BaseModel):
     is_favorite: bool
     photo_url: Optional[str]
 
+    # Phase 2: Ownership and sharing
+    owner_user_id: UUID
+    owner: Optional[OwnerInfo] = None
+    is_published_to_family: bool = False
+    source: str = 'manual'
+
     class Config:
         from_attributes = True
 
@@ -181,9 +207,19 @@ class ContactResponse(BaseModel):
     notes: Optional[str]
     photo_url: Optional[str]
 
+    # Phase 2: Ownership
+    owner_user_id: UUID
+    owner: Optional[OwnerInfo] = None
+
+    # Phase 2: Family sharing
+    is_published_to_family: bool = False
+    published_at: Optional[datetime] = None
+    published_by_user_id: Optional[UUID] = None
+
     # Sync info
-    external_source: Optional[str]
-    last_synced_at: Optional[datetime]
+    source: str = 'manual'
+    external_id: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
 
     # Status
     is_favorite: bool
@@ -228,6 +264,59 @@ class UpcomingBirthday(BaseModel):
 class UpcomingBirthdaysResponse(BaseModel):
     """List of upcoming birthdays"""
     birthdays: list[UpcomingBirthday]
+
+
+# ============ Publish to Family ============
+
+class PublishToFamilyRequest(BaseModel):
+    """Request to publish/unpublish a contact"""
+    publish: bool = True
+
+
+class PublishToFamilyResponse(BaseModel):
+    """Response after publishing/unpublishing"""
+    id: UUID
+    is_published_to_family: bool
+    published_at: Optional[datetime]
+    message: str
+
+
+# ============ Smart Lookup (for Event Invitations) ============
+
+class LookupResultBase(BaseModel):
+    """Base lookup result"""
+    id: UUID
+    display_name: str
+    email: Optional[str]
+    avatar_url: Optional[str] = None
+
+
+class FamilyUserResult(LookupResultBase):
+    """Family member in lookup results"""
+    type: Literal['family_user'] = 'family_user'
+    role: str  # 'admin', 'parent', 'child'
+    color: Optional[str]
+    is_minor: bool = False
+
+
+class ContactResult(LookupResultBase):
+    """Contact in lookup results"""
+    type: Literal['contact'] = 'contact'
+    source: Literal['personal', 'family']  # 'personal' = own, 'family' = published by other
+    owner_name: Optional[str] = None  # For family contacts, shows who shared it
+
+
+class EmailSuggestion(BaseModel):
+    """Suggestion to invite by email when no match found"""
+    type: Literal['email_suggestion'] = 'email_suggestion'
+    email: str
+    prompt: str = "Invite as guest"
+
+
+class SmartLookupResponse(BaseModel):
+    """Smart lookup response for invitee selection"""
+    query: str
+    results: list[FamilyUserResult | ContactResult | EmailSuggestion]
 
 
 # ============ Utility Schemas ============

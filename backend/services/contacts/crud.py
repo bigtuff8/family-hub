@@ -1,24 +1,31 @@
 """
 Contacts database operations
 Location: backend/services/contacts/crud.py
+
+Phase 2 Updates:
+- User-owned contacts (owner_user_id)
+- My Contacts vs Family Contacts filtering
+- Publish to Family functionality
+- Smart lookup for invitee selection
 """
 
 from datetime import datetime, timezone, date
-from typing import Optional
+from typing import Optional, Literal
 from uuid import UUID
 
 from sqlalchemy import select, and_, or_, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from shared.models import Contact, ContactPhone, ContactEmail
+from shared.models import Contact, ContactPhone, ContactEmail, User
 from services.contacts import schemas
 
 
 # ============ Contact Operations ============
 
-async def get_contacts_by_tenant(
+async def get_my_contacts(
     db: AsyncSession,
+    user_id: UUID,
     tenant_id: UUID,
     include_archived: bool = False,
     search: Optional[str] = None,
@@ -27,10 +34,19 @@ async def get_contacts_by_tenant(
     page_size: int = 50
 ) -> tuple[list[Contact], int]:
     """
-    Get contacts for a tenant with optional filtering.
+    Get contacts owned by the current user.
     Returns: (contacts, total_count)
     """
-    query = select(Contact).where(Contact.tenant_id == tenant_id)
+    query = (
+        select(Contact)
+        .options(selectinload(Contact.owner))
+        .where(
+            and_(
+                Contact.tenant_id == tenant_id,
+                Contact.owner_user_id == user_id
+            )
+        )
+    )
 
     if not include_archived:
         query = query.where(Contact.is_archived == False)
@@ -67,17 +83,74 @@ async def get_contacts_by_tenant(
     return contacts, total
 
 
+async def get_family_contacts(
+    db: AsyncSession,
+    user_id: UUID,
+    tenant_id: UUID,
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50
+) -> tuple[list[Contact], int]:
+    """
+    Get contacts published to family (excluding user's own).
+    Returns: (contacts, total_count)
+    """
+    query = (
+        select(Contact)
+        .options(selectinload(Contact.owner))
+        .where(
+            and_(
+                Contact.tenant_id == tenant_id,
+                Contact.is_published_to_family == True,
+                Contact.owner_user_id != user_id,  # Exclude own contacts
+                Contact.is_archived == False
+            )
+        )
+    )
+
+    if search:
+        search_term = f"%{search.lower()}%"
+        query = query.where(
+            or_(
+                func.lower(Contact.first_name).like(search_term),
+                func.lower(Contact.last_name).like(search_term),
+                func.lower(Contact.display_name).like(search_term),
+                func.lower(Contact.nickname).like(search_term),
+                func.lower(Contact.primary_email).like(search_term),
+            )
+        )
+
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Apply pagination and ordering
+    query = query.order_by(Contact.last_name, Contact.first_name)
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(query)
+    contacts = result.scalars().all()
+
+    return contacts, total
+
+
 async def get_contact_by_id(
     db: AsyncSession,
     contact_id: UUID,
-    tenant_id: UUID
+    tenant_id: UUID,
+    user_id: Optional[UUID] = None
 ) -> Optional[Contact]:
-    """Get a specific contact with phones and emails."""
-    result = await db.execute(
+    """
+    Get a specific contact with phones and emails.
+    If user_id provided, only returns if user owns it or it's published to family.
+    """
+    query = (
         select(Contact)
         .options(
             selectinload(Contact.phones),
-            selectinload(Contact.emails)
+            selectinload(Contact.emails),
+            selectinload(Contact.owner)
         )
         .where(
             and_(
@@ -86,21 +159,59 @@ async def get_contact_by_id(
             )
         )
     )
+
+    if user_id:
+        # User can see their own contacts OR published family contacts
+        query = query.where(
+            or_(
+                Contact.owner_user_id == user_id,
+                Contact.is_published_to_family == True
+            )
+        )
+
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+
+async def get_contact_for_edit(
+    db: AsyncSession,
+    contact_id: UUID,
+    tenant_id: UUID,
+    user_id: UUID
+) -> Optional[Contact]:
+    """
+    Get a contact that the user can edit (must own it).
+    """
+    result = await db.execute(
+        select(Contact)
+        .options(
+            selectinload(Contact.phones),
+            selectinload(Contact.emails),
+            selectinload(Contact.owner)
+        )
+        .where(
+            and_(
+                Contact.id == contact_id,
+                Contact.tenant_id == tenant_id,
+                Contact.owner_user_id == user_id  # Must own to edit
+            )
+        )
+    )
     return result.scalar_one_or_none()
 
 
 async def get_contact_by_external_id(
     db: AsyncSession,
-    tenant_id: UUID,
-    external_source: str,
+    user_id: UUID,
+    source: str,
     external_id: str
 ) -> Optional[Contact]:
-    """Get a contact by external sync ID."""
+    """Get a contact by external sync ID (user-specific)."""
     result = await db.execute(
         select(Contact).where(
             and_(
-                Contact.tenant_id == tenant_id,
-                Contact.external_source == external_source,
+                Contact.owner_user_id == user_id,
+                Contact.source == source,
                 Contact.external_id == external_id
             )
         )
@@ -110,10 +221,11 @@ async def get_contact_by_external_id(
 
 async def create_contact(
     db: AsyncSession,
+    user_id: UUID,
     tenant_id: UUID,
     data: schemas.ContactCreate
 ) -> Contact:
-    """Create a new contact with optional phones and emails."""
+    """Create a new contact owned by the current user."""
     # Build display name if not provided
     display_name = data.display_name
     if not display_name:
@@ -122,8 +234,11 @@ async def create_contact(
         else:
             display_name = data.first_name
 
+    now = datetime.now(timezone.utc)
+
     contact = Contact(
         tenant_id=tenant_id,
+        owner_user_id=user_id,  # Phase 2: User ownership
         first_name=data.first_name,
         last_name=data.last_name,
         display_name=display_name,
@@ -144,7 +259,11 @@ async def create_contact(
         notes=data.notes,
         photo_url=data.photo_url,
         is_favorite=data.is_favorite,
-        external_source='manual',
+        source='manual',
+        # Phase 2: Publish to family
+        is_published_to_family=data.is_published_to_family,
+        published_at=now if data.is_published_to_family else None,
+        published_by_user_id=user_id if data.is_published_to_family else None,
     )
     db.add(contact)
     await db.flush()  # Get the contact ID
@@ -173,7 +292,7 @@ async def create_contact(
     await db.refresh(contact)
 
     # Load relationships
-    return await get_contact_by_id(db, contact.id, tenant_id)
+    return await get_contact_by_id(db, contact.id, tenant_id, user_id)
 
 
 async def update_contact(
@@ -221,6 +340,31 @@ async def archive_contact(db: AsyncSession, contact: Contact) -> Contact:
     """Archive/unarchive a contact."""
     contact.is_archived = not contact.is_archived
     contact.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(contact)
+    return contact
+
+
+# ============ Publish to Family ============
+
+async def publish_to_family(
+    db: AsyncSession,
+    contact: Contact,
+    user_id: UUID,
+    publish: bool = True
+) -> Contact:
+    """Publish or unpublish a contact to the family."""
+    now = datetime.now(timezone.utc)
+
+    contact.is_published_to_family = publish
+    if publish:
+        contact.published_at = now
+        contact.published_by_user_id = user_id
+    else:
+        contact.published_at = None
+        contact.published_by_user_id = None
+
+    contact.updated_at = now
     await db.commit()
     await db.refresh(contact)
     return contact
@@ -298,22 +442,27 @@ async def delete_email(db: AsyncSession, email_id: UUID, contact_id: UUID) -> bo
 
 async def get_upcoming_birthdays(
     db: AsyncSession,
+    user_id: UUID,
     tenant_id: UUID,
     days_ahead: int = 30
 ) -> list[dict]:
     """
     Get contacts with birthdays in the next N days.
-    Handles year wrap-around (Dec -> Jan).
+    Includes user's own contacts + family published contacts.
     """
     today = date.today()
 
-    # Get all contacts with birthdays
+    # Get contacts visible to user (own + family published)
     result = await db.execute(
         select(Contact).where(
             and_(
                 Contact.tenant_id == tenant_id,
                 Contact.birthday != None,
-                Contact.is_archived == False
+                Contact.is_archived == False,
+                or_(
+                    Contact.owner_user_id == user_id,
+                    Contact.is_published_to_family == True
+                )
             )
         )
     )
@@ -357,23 +506,144 @@ async def get_upcoming_birthdays(
     return upcoming
 
 
-# ============ Search/Autocomplete ============
+# ============ Smart Lookup (for Event Invitations) ============
 
-async def search_contacts(
+async def smart_lookup(
     db: AsyncSession,
+    user_id: UUID,
     tenant_id: UUID,
     query: str,
     limit: int = 10
-) -> list[Contact]:
-    """Quick search for autocomplete."""
+) -> dict:
+    """
+    Smart lookup for invitee selection.
+    Search order: Family users -> Personal contacts -> Family contacts
+    Returns structured results by category.
+    """
     search_term = f"%{query.lower()}%"
+    results = {
+        "family_users": [],
+        "personal_contacts": [],
+        "family_contacts": [],
+    }
 
-    result = await db.execute(
+    # 1. Search family users (excluding current user)
+    users_result = await db.execute(
+        select(User)
+        .where(
+            and_(
+                User.tenant_id == tenant_id,
+                User.id != user_id,
+                User.is_active == True,
+                or_(
+                    func.lower(User.name).like(search_term),
+                    func.lower(User.email).like(search_term),
+                )
+            )
+        )
+        .limit(limit)
+    )
+    family_users = users_result.scalars().all()
+
+    for user in family_users:
+        is_minor = user.role == 'child'
+        results["family_users"].append({
+            "id": user.id,
+            "display_name": user.name,
+            "email": user.email,
+            "avatar_url": user.avatar_url,
+            "role": user.role,
+            "color": user.color,
+            "is_minor": is_minor,
+        })
+
+    # 2. Search personal contacts (user's own)
+    personal_result = await db.execute(
         select(Contact)
         .where(
             and_(
                 Contact.tenant_id == tenant_id,
+                Contact.owner_user_id == user_id,
                 Contact.is_archived == False,
+                or_(
+                    func.lower(Contact.first_name).like(search_term),
+                    func.lower(Contact.last_name).like(search_term),
+                    func.lower(Contact.display_name).like(search_term),
+                    func.lower(Contact.nickname).like(search_term),
+                    func.lower(Contact.primary_email).like(search_term),
+                )
+            )
+        )
+        .limit(limit)
+    )
+    personal_contacts = personal_result.scalars().all()
+
+    for contact in personal_contacts:
+        results["personal_contacts"].append({
+            "id": contact.id,
+            "display_name": contact.display_name or f"{contact.first_name} {contact.last_name or ''}".strip(),
+            "email": contact.primary_email,
+            "avatar_url": contact.photo_url,
+        })
+
+    # 3. Search family contacts (published by others)
+    family_result = await db.execute(
+        select(Contact)
+        .options(selectinload(Contact.owner))
+        .where(
+            and_(
+                Contact.tenant_id == tenant_id,
+                Contact.is_published_to_family == True,
+                Contact.owner_user_id != user_id,
+                Contact.is_archived == False,
+                or_(
+                    func.lower(Contact.first_name).like(search_term),
+                    func.lower(Contact.last_name).like(search_term),
+                    func.lower(Contact.display_name).like(search_term),
+                    func.lower(Contact.nickname).like(search_term),
+                    func.lower(Contact.primary_email).like(search_term),
+                )
+            )
+        )
+        .limit(limit)
+    )
+    family_contacts = family_result.scalars().all()
+
+    for contact in family_contacts:
+        results["family_contacts"].append({
+            "id": contact.id,
+            "display_name": contact.display_name or f"{contact.first_name} {contact.last_name or ''}".strip(),
+            "email": contact.primary_email,
+            "avatar_url": contact.photo_url,
+            "owner_name": contact.owner.name if contact.owner else None,
+        })
+
+    return results
+
+
+# ============ Search/Autocomplete ============
+
+async def search_contacts(
+    db: AsyncSession,
+    user_id: UUID,
+    tenant_id: UUID,
+    query: str,
+    limit: int = 10
+) -> list[Contact]:
+    """Quick search for autocomplete (own + family contacts)."""
+    search_term = f"%{query.lower()}%"
+
+    result = await db.execute(
+        select(Contact)
+        .options(selectinload(Contact.owner))
+        .where(
+            and_(
+                Contact.tenant_id == tenant_id,
+                Contact.is_archived == False,
+                or_(
+                    Contact.owner_user_id == user_id,
+                    Contact.is_published_to_family == True
+                ),
                 or_(
                     func.lower(Contact.first_name).like(search_term),
                     func.lower(Contact.last_name).like(search_term),
@@ -385,3 +655,59 @@ async def search_contacts(
         .limit(limit)
     )
     return result.scalars().all()
+
+
+# ============ Legacy Support (for migration) ============
+
+async def get_contacts_by_tenant(
+    db: AsyncSession,
+    tenant_id: UUID,
+    include_archived: bool = False,
+    search: Optional[str] = None,
+    favorites_only: bool = False,
+    page: int = 1,
+    page_size: int = 50
+) -> tuple[list[Contact], int]:
+    """
+    LEGACY: Get all contacts for a tenant (admin view).
+    For Phase 2, prefer get_my_contacts() or get_family_contacts().
+    """
+    query = (
+        select(Contact)
+        .options(selectinload(Contact.owner))
+        .where(Contact.tenant_id == tenant_id)
+    )
+
+    if not include_archived:
+        query = query.where(Contact.is_archived == False)
+
+    if favorites_only:
+        query = query.where(Contact.is_favorite == True)
+
+    if search:
+        search_term = f"%{search.lower()}%"
+        query = query.where(
+            or_(
+                func.lower(Contact.first_name).like(search_term),
+                func.lower(Contact.last_name).like(search_term),
+                func.lower(Contact.display_name).like(search_term),
+                func.lower(Contact.nickname).like(search_term),
+                func.lower(Contact.primary_email).like(search_term),
+                Contact.primary_phone.like(search_term),
+                func.lower(Contact.company).like(search_term),
+            )
+        )
+
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Apply pagination and ordering
+    query = query.order_by(Contact.last_name, Contact.first_name)
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(query)
+    contacts = result.scalars().all()
+
+    return contacts, total
