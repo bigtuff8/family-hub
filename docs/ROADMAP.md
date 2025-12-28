@@ -674,19 +674,19 @@ Phase 2 is complete when:
 | Name | Role | Default Email | Age |
 |------|------|---------------|-----|
 | James | Admin (Dad) | jamesbrownyork8@gmail.com | Adult |
-| Nicola | Admin (Mum) | nicola@icloud.com | Adult |
-| Tommy | Member (Child) | tommy@icloud.com | Minor |
-| Harry | Member (Child) | harry@icloud.com | 7 |
+| Nicola | Admin (Mum) | nicolabrown80@icloud.com | Adult |
+| Tommy | Member (Child) | thomas.j.brown11@icloud.com | Minor |
+| Harry | Member (Child) | harry.m.brown@icloud.com | 7 |
 
 **Parental Controls:**
 - James & Nicola can view/manage Tommy & Harry's calendars and contacts
 - Harry's invite responses managed by parents
 
 **External Accounts:**
-- James: Google, Outlook, iCloud
-- Nicola: iCloud
-- Tommy: iCloud
-- Harry: iCloud (not active)
+- James: Google (jamesbrownyork8@gmail.com), iCloud (jamesbrown8@me.com), Outlook (james.brown377@outlook.com), Yahoo (bigtuff8@yahoo.com)
+- Nicola: iCloud (nicolabrown80@icloud.com)
+- Tommy: iCloud (thomas.j.brown11@icloud.com)
+- Harry: iCloud (harry.m.brown@icloud.com) - not active
 
 ---
 

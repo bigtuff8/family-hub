@@ -290,12 +290,33 @@ async def seed_user_email_accounts(db: AsyncSession, tenant: Tenant, users: dict
             "email_address": "jamesbrownyork8@gmail.com",
             "provider": "google",
             "display_name": "Personal Gmail",
-            "is_default": True,
+            "is_default": True,  # Primary for invites
+        },
+        {
+            "user_key": "james",
+            "email_address": "jamesbrown8@me.com",
+            "provider": "icloud",
+            "display_name": "iCloud",
+            "is_default": False,
+        },
+        {
+            "user_key": "james",
+            "email_address": "james.brown377@outlook.com",
+            "provider": "outlook",
+            "display_name": "Outlook",
+            "is_default": False,
+        },
+        {
+            "user_key": "james",
+            "email_address": "bigtuff8@yahoo.com",
+            "provider": "other",
+            "display_name": "Yahoo",
+            "is_default": False,
         },
         # Nicola's iCloud
         {
             "user_key": "nicola",
-            "email_address": "nicola@icloud.com",
+            "email_address": "nicolabrown80@icloud.com",
             "provider": "icloud",
             "display_name": "iCloud",
             "is_default": True,
@@ -303,7 +324,7 @@ async def seed_user_email_accounts(db: AsyncSession, tenant: Tenant, users: dict
         # Tommy's iCloud
         {
             "user_key": "tommy",
-            "email_address": "tommy@icloud.com",
+            "email_address": "thomas.j.brown11@icloud.com",
             "provider": "icloud",
             "display_name": "iCloud",
             "is_default": True,
@@ -311,7 +332,7 @@ async def seed_user_email_accounts(db: AsyncSession, tenant: Tenant, users: dict
         # Harry's iCloud (age 7, not active but set up for invites)
         {
             "user_key": "harry",
-            "email_address": "harry@icloud.com",
+            "email_address": "harry.m.brown@icloud.com",
             "provider": "icloud",
             "display_name": "iCloud",
             "is_default": True,

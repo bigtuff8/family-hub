@@ -81,12 +81,12 @@ Major architectural changes were made on December 27, 2025:
 ## Family Configuration (Brown Family)
 
 **Family Members:**
-| Name | Role | Default Email | Calendars |
-|------|------|---------------|-----------|
-| James | Admin (Dad) | jamesbrownyork8@gmail.com | Google, Outlook, iCloud |
-| Nicola | Admin (Mum) | nicola@icloud.com | iCloud |
-| Tommy | Member (Child) | tommy@icloud.com | iCloud |
-| Harry | Member (Child, 7) | harry@icloud.com | iCloud (not active) |
+| Name | Role | Default Email | All Accounts |
+|------|------|---------------|--------------|
+| James | Admin (Dad) | jamesbrownyork8@gmail.com | Google, iCloud (jamesbrown8@me.com), Outlook (james.brown377@outlook.com), Yahoo (bigtuff8@yahoo.com) |
+| Nicola | Admin (Mum) | nicolabrown80@icloud.com | iCloud |
+| Tommy | Member (Child) | thomas.j.brown11@icloud.com | iCloud |
+| Harry | Member (Child, 7) | harry.m.brown@icloud.com | iCloud (not active) |
 
 **Parental Controls:**
 - James & Nicola can view/manage Tommy & Harry's data
