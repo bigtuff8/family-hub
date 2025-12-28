@@ -164,9 +164,9 @@ async def smart_lookup(
             owner_name=contact["owner_name"],
         ))
 
-    # If query looks like email and no results, suggest inviting as guest
+    # If query looks like a valid email, always offer to invite as guest
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    if re.match(email_pattern, q) and not response_results:
+    if re.match(email_pattern, q):
         response_results.append(schemas.EmailSuggestion(
             email=q,
             prompt=f"Invite {q} as guest"

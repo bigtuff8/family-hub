@@ -51,6 +51,16 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
   const [createModalDefaultDate, setCreateModalDefaultDate] = useState<Dayjs | undefined>(undefined);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
+  // Update selectedEvent with fresh data when events refresh (keeps modal in sync)
+  useEffect(() => {
+    if (selectedEvent && events.length > 0) {
+      const freshEvent = events.find(e => e.id === selectedEvent.id);
+      if (freshEvent && freshEvent !== selectedEvent) {
+        setSelectedEvent(freshEvent);
+      }
+    }
+  }, [events]);
+
   // Handle window resize for mobile detection
   useEffect(() => {
     const handleResize = () => {

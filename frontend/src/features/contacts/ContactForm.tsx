@@ -117,6 +117,22 @@ export function ContactForm({ contact, onSave, onCancel, saving }: ContactFormPr
   // Track if form has been modified
   const [formModified, setFormModified] = useState(false);
 
+  // Reset form and local state when contact changes (fixes state persistence between edit/create)
+  useEffect(() => {
+    const phoneData = extractCountryCode(contact?.primary_phone || null);
+    setCountryCode(phoneData.countryCode);
+    setShowCustomAnniversary(
+      isCustomAnniversaryType(contact?.anniversary_type) || contact?.anniversary_type === 'other'
+    );
+    setCustomAnniversaryType(
+      isCustomAnniversaryType(contact?.anniversary_type) ? contact?.anniversary_type || '' : ''
+    );
+    setFormModified(false);
+    setAddressSearchValue('');
+    setAddressOptions([]);
+    form.resetFields();
+  }, [contact, form]);
+
   // Watch for form changes
   const handleFormChange = () => {
     setFormModified(true);
@@ -143,10 +159,12 @@ export function ContactForm({ contact, onSave, onCancel, saving }: ContactFormPr
         job_title: contact.job_title,
         notes: contact.notes,
         is_favorite: contact.is_favorite,
+        is_published_to_family: contact.is_published_to_family,
       }
     : {
         country: 'United Kingdom',
         is_favorite: false,
+        is_published_to_family: false,
       };
 
   const handleSubmit = (values: any) => {
@@ -572,6 +590,15 @@ export function ContactForm({ contact, onSave, onCancel, saving }: ContactFormPr
 
       {/* Options */}
       <Form.Item name="is_favorite" label="Favorite" valuePropName="checked">
+        <Switch />
+      </Form.Item>
+
+      <Form.Item
+        name="is_published_to_family"
+        label="Share with Family"
+        tooltip="When enabled, other family members can see this contact"
+        valuePropName="checked"
+      >
         <Switch />
       </Form.Item>
 

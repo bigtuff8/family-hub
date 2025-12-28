@@ -25,6 +25,7 @@ import {
   BuildOutlined,
   StarFilled,
   StarOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { contactsApi } from '../../services/contacts';
@@ -96,6 +97,16 @@ export function ContactDrawer({
     }
   };
 
+  const handleTogglePublish = async () => {
+    if (!contact) return;
+    try {
+      await contactsApi.publishToFamily(contact.id, !contact.is_published_to_family);
+      onSaved();
+    } catch {
+      message.error('Failed to update sharing');
+    }
+  };
+
   const formatDate = (dateStr: string | null): string => {
     if (!dateStr) return '-';
     return dayjs(dateStr).format('D MMMM YYYY');
@@ -136,6 +147,12 @@ export function ContactDrawer({
               onClick={handleToggleFavorite}
             >
               {contact.is_favorite ? 'Favorited' : 'Add to Favorites'}
+            </Button>
+            <Button
+              icon={<ShareAltOutlined />}
+              onClick={handleTogglePublish}
+            >
+              {contact.is_published_to_family ? 'Shared with Family' : 'Share with Family'}
             </Button>
           </Space>
         </div>

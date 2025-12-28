@@ -1,7 +1,7 @@
 # Claude Code Project Configuration
 
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
-**Last Updated:** December 23, 2025
+**Last Updated:** December 28, 2025
 
 ---
 
@@ -11,8 +11,9 @@ Family Hub is a self-hosted family organization system designed to run on a Rasp
 
 **Key Documents:**
 - `docs/ROADMAP.md` - Development phases and progress
-- `docs/technical-debt.md` - Technical debt register
 - `docs/session-starter-checklist.md` - Session start reference
+- `docs/testing/phase2-user-tests.md` - User tests for Phase 2
+- `docs/technical-debt.md` - Technical debt register
 
 ---
 
@@ -128,7 +129,7 @@ docker-compose up -d frontend
 
 ### 6. Project Location
 
-**Location:** `C:\Dev\family-hub`
+**Location:** `C:\Projects\FamilyHub\family-hub`
 
 **Note:** This project was moved from OneDrive to local storage on December 24, 2025 to eliminate sync conflicts that caused "file unexpectedly modified" errors during Claude Code edits.
 
@@ -270,6 +271,7 @@ Working on: [describe task]
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Created:** December 23, 2025
+**Last Updated:** December 28, 2025
 **Owner:** James Brown

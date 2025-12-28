@@ -2,7 +2,7 @@
 
 Use this document at the start of each development session to remind Claude of context, priorities, and constraints.
 
-**Last Updated:** December 27, 2025
+**Last Updated:** December 28, 2025
 **Project:** Family Hub
 **Current Phase:** Phase 2 - Integration & Sync
 
@@ -13,33 +13,74 @@ Use this document at the start of each development session to remind Claude of c
 ```
 I'm continuing work on Family Hub. Please review:
 
-1. docs/ROADMAP.md - Project status and requirements (READ THE "Current Status & Next Steps" SECTION FIRST)
-2. docs/session-starter-checklist.md - This checklist
-3. docs/design/phase2-calendar-sync.md - Calendar invite-based architecture
-4. docs/design/phase2-contacts-sync.md - User-owned contacts architecture
+1. docs/ROADMAP.md - Project status and requirements
+2. docs/session-starter-checklist.md - This checklist (HAS IMPORTANT DB MIGRATION STEPS)
+3. docs/testing/phase2-user-tests.md - User tests to run
 
 Current Phase: Phase 2 - Integration & Sync
-Working on: [describe what you're building]
+Next task:
+  1. Re-initialize database (new models added)
+  2. Run user tests
+  3. Continue with Calendar Invite system
 
 Ready when you are!
 ```
 
 ---
 
-## Current Status (December 27, 2025)
+## Current Status (December 28, 2025)
+
+### ⚠️ IMPORTANT: Database Migration Required
+
+The database models were updated but the database needs to be re-initialized:
+
+```bash
+cd C:\Projects\FamilyHub\family-hub
+docker-compose down -v          # Remove old database
+docker-compose up -d            # Start fresh
+docker-compose exec backend python seed.py  # Re-seed data
+```
+
+**Note:** The `-v` flag removes the database volume. This is needed because new tables were added (UserEmailAccount, EventInvite, ParentalControl, etc.)
 
 ### What's Complete
 - Phase 1: Calendar MVP
 - Phase 1.5: Authentication
-- Phase 2 (partial): Shopping Lists, Basic Contacts
+- Phase 2 (partial):
+  - Shopping Lists ✅
+  - Basic Contacts ✅
+  - **User-Owned Contacts** ✅ (Dec 28) - code complete, needs DB migration
+  - **Smart Lookup API** ✅ (Dec 28) - code complete, needs DB migration
+  - **SmartContactSearch Component** ✅ (Dec 28)
 
-### What's Designed (Ready to Build)
-Major architectural changes were made on December 27, 2025:
+### What's Ready to Test
 
-| Feature | Design Doc | Summary |
-|---------|------------|---------|
-| Calendar Sync | `docs/design/phase2-calendar-sync.md` | **Invite-based** - Family Hub sends invites via dedicated Outlook organizer account |
-| Contacts Sync | `docs/design/phase2-contacts-sync.md` | **User-owned** contacts with "Publish to Family" and smart typeahead lookup |
+User tests have been created for the Phase 2 contacts implementation:
+
+| Test Document | Purpose | Time |
+|---------------|---------|------|
+| `docs/testing/phase2-user-tests.md` | Full browser & mobile test suite | ~1 hour |
+| `docs/testing/mobile-quick-test.md` | Quick mobile validation | ~15 min |
+
+**Test Coverage:**
+- Contacts ownership (My Contacts vs Family Contacts)
+- Publish to Family functionality
+- Smart Lookup API (search priority order)
+- SmartContactSearch component (typeahead, keyboard nav, touch)
+- Cross-user data isolation
+- Error handling
+
+### What's Next to Build
+
+**Immediate Next Steps:**
+1. **Run User Tests** - Validate contacts implementation
+2. Organizer Account Setup (Outlook)
+3. Event creation with invites
+4. Response tracking
+
+**Later:**
+5. Google Contacts sync
+6. User calendar sync (unified view)
 
 ### Key Architecture Decisions
 
@@ -48,33 +89,12 @@ Major architectural changes were made on December 27, 2025:
 - Dedicated **Outlook account** (familyhub-brown@outlook.com) sends all invites
 - Users can only **respond** (Accept/Decline/Tentative) from external calendars
 - **Amendments only in app** - external calendars are response-only
-- Responses sync back to app automatically
 
 **Contacts System:**
 - Each user **owns their own contacts** (not tenant-wide)
 - **"Publish to Family"** option to share contacts
 - **Smart lookup** when adding event invitees (typeahead search)
 - Search priority: Family members → Personal contacts → Family contacts → New email
-
-### Implementation Plan (What to Build Next)
-
-**Phase 1: Foundation (Do First)**
-1. Database migrations for new tables
-2. Core Contacts CRUD (user-owned)
-3. Publish to Family functionality
-
-**Phase 2: Smart Lookup**
-4. `/contacts/lookup` API endpoint
-5. SmartContactSearch component (typeahead)
-
-**Phase 3: Calendar Events**
-6. Organizer Account Setup (Outlook)
-7. Event creation with invites
-8. Response tracking
-
-**Phase 4: External Sync**
-9. Google Contacts sync
-10. User calendar sync (unified view)
 
 ---
 
@@ -142,6 +162,8 @@ Major architectural changes were made on December 27, 2025:
 | `docs/ROADMAP.md` | **Master requirements and status** |
 | `docs/design/phase2-calendar-sync.md` | Calendar invite architecture |
 | `docs/design/phase2-contacts-sync.md` | User-owned contacts architecture |
+| `docs/testing/phase2-user-tests.md` | **User tests for Phase 2** |
+| `docs/testing/mobile-quick-test.md` | Quick mobile validation |
 | `docs/technical-debt.md` | Known issues to fix |
 | `CLAUDE.md` | Development best practices |
 
@@ -252,7 +274,7 @@ Before ending the session:
 
 ---
 
-**Document Version:** 3.0
-**Last Updated:** December 27, 2025
+**Document Version:** 3.1
+**Last Updated:** December 28, 2025
 **Next Review:** After Phase 2 completion
 **Owner:** James Brown
