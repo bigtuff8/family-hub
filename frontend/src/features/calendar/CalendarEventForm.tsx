@@ -823,9 +823,10 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
             placeholder="Select additional family members"
             size="large"
             disabled={!selectedLead && availableAttendees.length === 0}
+            optionFilterProp="title"
           >
             {availableAttendees.map(member => (
-              <Option key={member.id} value={member.id}>
+              <Option key={member.id} value={member.id} title={member.name}>
                 <Space>
                   <div
                     style={{
