@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Space, Tabs, FloatButton, DatePicker } from 'antd';
+import { Button, Space, Tabs, FloatButton, DatePicker, Dropdown } from 'antd';
 import {
   LeftOutlined,
   RightOutlined,
@@ -7,7 +7,14 @@ import {
   PlusOutlined,
   HomeOutlined,
   AppstoreOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth';
+import { getInitials } from '../../utils/strings';
 import dayjs, { Dayjs } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -50,6 +57,19 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createModalDefaultDate, setCreateModalDefaultDate] = useState<Dayjs | undefined>(undefined);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const userInitials = getInitials(user?.name) || 'U';
+
+  const userMenuItems = [
+    { key: 'profile', icon: <UserOutlined />, label: user?.name || 'User', disabled: true },
+    { type: 'divider' as const },
+    { key: 'shopping', icon: <ShoppingCartOutlined />, label: 'Shopping List', onClick: () => navigate('/shopping') },
+    { key: 'contacts', icon: <TeamOutlined />, label: 'Contacts', onClick: () => navigate('/contacts') },
+    { type: 'divider' as const },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Log out', danger: true, onClick: logout },
+  ];
 
   // Update selectedEvent with fresh data when events refresh (keeps modal in sync)
   useEffect(() => {
@@ -303,6 +323,24 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
             items={tabItems}
             className="view-switcher"
           />
+          <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+            <div className="user-avatar" style={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              background: user?.color || '#2dd4bf',
+              border: '3px solid white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginLeft: 16,
+            }}>
+              {userInitials}
+            </div>
+          </Dropdown>
         </div>
       </div>
 

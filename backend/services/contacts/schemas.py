@@ -319,6 +319,23 @@ class SmartLookupResponse(BaseModel):
     results: list[FamilyUserResult | ContactResult | EmailSuggestion]
 
 
+# ============ Email Search (for Event Email Field) ============
+
+class EmailSearchResult(BaseModel):
+    """Contact found by email search"""
+    id: UUID
+    display_name: str
+    email: str
+    first_name: str
+    last_name: Optional[str] = None
+
+
+class EmailSearchResponse(BaseModel):
+    """Email search response"""
+    query: str
+    contacts: list[EmailSearchResult]
+
+
 # ============ Utility Schemas ============
 
 class MessageResponse(BaseModel):

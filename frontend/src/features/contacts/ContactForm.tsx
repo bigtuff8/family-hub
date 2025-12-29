@@ -130,7 +130,56 @@ export function ContactForm({ contact, onSave, onCancel, saving }: ContactFormPr
     setFormModified(false);
     setAddressSearchValue('');
     setAddressOptions([]);
-    form.resetFields();
+
+    // Must use setFieldsValue, not resetFields - resetFields uses cached initialValues from first mount
+    if (contact) {
+      form.setFieldsValue({
+        first_name: contact.first_name,
+        last_name: contact.last_name,
+        display_name: contact.display_name,
+        nickname: contact.nickname,
+        primary_email: contact.primary_email,
+        primary_phone: phoneData.number,
+        birthday: contact.birthday ? dayjs(contact.birthday) : null,
+        anniversary: contact.anniversary ? dayjs(contact.anniversary) : null,
+        anniversary_type: isCustomAnniversaryType(contact.anniversary_type) ? 'other' : contact.anniversary_type,
+        address_line1: contact.address_line1,
+        address_line2: contact.address_line2,
+        city: contact.city,
+        county: contact.county,
+        postcode: contact.postcode,
+        country: contact.country || 'United Kingdom',
+        company: contact.company,
+        job_title: contact.job_title,
+        notes: contact.notes,
+        is_favorite: contact.is_favorite,
+        is_published_to_family: contact.is_published_to_family,
+      });
+    } else {
+      // Clear form for new contact
+      form.setFieldsValue({
+        first_name: undefined,
+        last_name: undefined,
+        display_name: undefined,
+        nickname: undefined,
+        primary_email: undefined,
+        primary_phone: undefined,
+        birthday: null,
+        anniversary: null,
+        anniversary_type: undefined,
+        address_line1: undefined,
+        address_line2: undefined,
+        city: undefined,
+        county: undefined,
+        postcode: undefined,
+        country: 'United Kingdom',
+        company: undefined,
+        job_title: undefined,
+        notes: undefined,
+        is_favorite: false,
+        is_published_to_family: false,
+      });
+    }
   }, [contact, form]);
 
   // Watch for form changes

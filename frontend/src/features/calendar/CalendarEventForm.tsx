@@ -23,7 +23,7 @@ import utc from 'dayjs/plugin/utc';
 import { CalendarEvent, CalendarEventCreate, CalendarEventUpdate, EventAttendeeCreate } from '../../types/calendar';
 import { createEvent, updateEvent, deleteEvent } from '../../services/calendar';
 import { contactsApi } from '../../services/contacts';
-import type { ContactSummary } from '../../types/contacts';
+import type { ContactSummary, EmailSearchResult } from '../../types/contacts';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -125,6 +125,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [selectedContacts, setSelectedContacts] = useState<ContactSummary[]>([]);
   const [selectedAttendees, setSelectedAttendees] = useState<EventAttendeeCreate[]>([]);
   const [contactSearchValue, setContactSearchValue] = useState('');
+  const [emailSearchResults, setEmailSearchResults] = useState<EmailSearchResult[]>([]);
+  const [emailSearchLoading, setEmailSearchLoading] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<string>('none');
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceEndType, setRecurrenceEndType] = useState<string>('never');
@@ -266,6 +268,42 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
 
   const handleContactSearch = (value: string) => {
     debouncedContactSearch(value);
+  };
+
+  // Search contacts by email for autocomplete
+  const searchContactsByEmail = async (query: string) => {
+    if (!query || query.length < 2 || !query.includes('@')) {
+      setEmailSearchResults([]);
+      return;
+    }
+    setEmailSearchLoading(true);
+    try {
+      const response = await contactsApi.searchByEmail(query);
+      setEmailSearchResults(response.contacts);
+    } catch (error) {
+      console.error('Email search error:', error);
+      setEmailSearchResults([]);
+    } finally {
+      setEmailSearchLoading(false);
+    }
+  };
+
+  const debouncedEmailSearch = debounce(searchContactsByEmail, 300);
+
+  const handleEmailSearchSelect = (value: string) => {
+    const contact = emailSearchResults.find(c => c.email === value);
+    if (contact) {
+      if (!selectedAttendees.some(a => a.email === contact.email)) {
+        const newAttendee: EventAttendeeCreate = {
+          contact_id: contact.id,
+          email: contact.email,
+          display_name: contact.display_name || `${contact.first_name} ${contact.last_name || ''}`.trim(),
+        };
+        setSelectedAttendees([...selectedAttendees, newAttendee]);
+      }
+    }
+    setGuestInputValue('');
+    setEmailSearchResults([]);
   };
 
   const handleSelectContact = (contactId: string) => {
@@ -828,19 +866,35 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
               notFoundContent={contactSearchLoading ? 'Searching...' : contactSearchValue.length >= 2 ? 'No contacts found' : 'Type to search'}
             />
 
-            {/* Email input */}
+            {/* Email input with autocomplete */}
             <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
-              <Input
-                placeholder="Or add email address..."
+              <AutoComplete
                 value={guestInputValue}
-                onChange={(e) => setGuestInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddEmailGuest();
-                  }
+                options={emailSearchResults.map(c => ({
+                  value: c.email,
+                  label: (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{c.display_name || `${c.first_name} ${c.last_name || ''}`.trim()}</span>
+                      <span style={{ color: '#999' }}>{c.email}</span>
+                    </div>
+                  ),
+                }))}
+                onSearch={(value) => {
+                  setGuestInputValue(value);
+                  debouncedEmailSearch(value);
                 }}
+                onSelect={handleEmailSearchSelect}
+                onChange={(value) => setGuestInputValue(value)}
+                placeholder="Or add email address..."
+                style={{ flex: 1 }}
                 size="large"
+                notFoundContent={
+                  emailSearchLoading
+                    ? 'Searching...'
+                    : guestInputValue.length >= 2 && guestInputValue.includes('@')
+                      ? 'No contacts found - press Add to use this email'
+                      : null
+                }
               />
               <Button size="large" onClick={handleAddEmailGuest} icon={<UserAddOutlined />}>
                 Add

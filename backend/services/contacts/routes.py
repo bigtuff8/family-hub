@@ -14,10 +14,11 @@ from typing import Optional, Literal
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.database import get_db
-from shared.models import User
+from shared.models import User, Contact
 from services.auth.security import get_current_user, get_current_tenant_id
 from services.contacts import crud, schemas
 
@@ -175,6 +176,70 @@ async def smart_lookup(
     return schemas.SmartLookupResponse(
         query=q,
         results=response_results
+    )
+
+
+@router.get("/search-by-email", response_model=schemas.EmailSearchResponse)
+async def search_contacts_by_email(
+    q: str = Query(..., min_length=3, description="Email search query (min 3 chars)"),
+    limit: int = Query(10, ge=1, le=20, description="Max results"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search contacts by email address only.
+    Used by the email input field in event creation to find existing contacts.
+    Searches both user's own contacts and family-shared contacts.
+    """
+    search_term = f"%{q.lower()}%"
+    
+    # Search user's own contacts by email
+    own_contacts_query = select(Contact).where(
+        Contact.tenant_id == current_user.tenant_id,
+        Contact.owner_user_id == current_user.id,
+        Contact.is_archived == False,
+        func.lower(Contact.primary_email).like(search_term)
+    ).limit(limit)
+    
+    own_result = await db.execute(own_contacts_query)
+    own_contacts = own_result.scalars().all()
+    
+    # Search family-shared contacts by email
+    family_contacts_query = select(Contact).where(
+        Contact.tenant_id == current_user.tenant_id,
+        Contact.owner_user_id != current_user.id,
+        Contact.is_published_to_family == True,
+        Contact.is_archived == False,
+        func.lower(Contact.primary_email).like(search_term)
+    ).limit(limit)
+    
+    family_result = await db.execute(family_contacts_query)
+    family_contacts = family_result.scalars().all()
+    
+    # Combine and deduplicate by email
+    all_contacts = list(own_contacts) + list(family_contacts)
+    seen_emails = set()
+    unique_contacts = []
+    for contact in all_contacts:
+        if contact.primary_email and contact.primary_email.lower() not in seen_emails:
+            seen_emails.add(contact.primary_email.lower())
+            unique_contacts.append(contact)
+    
+    # Build response
+    results = []
+    for contact in unique_contacts[:limit]:
+        display_name = contact.display_name or f"{contact.first_name} {contact.last_name or ''}".strip()
+        results.append(schemas.EmailSearchResult(
+            id=contact.id,
+            display_name=display_name,
+            email=contact.primary_email,
+            first_name=contact.first_name,
+            last_name=contact.last_name,
+        ))
+    
+    return schemas.EmailSearchResponse(
+        query=q,
+        contacts=results
     )
 
 

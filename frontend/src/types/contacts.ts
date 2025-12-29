@@ -253,6 +253,21 @@ export interface SmartLookupResponse {
   results: LookupResult[];
 }
 
+// ============ Email Search (Phase 2) ============
+
+export interface EmailSearchResult {
+  id: string;
+  display_name: string;
+  email: string;
+  first_name: string;
+  last_name: string | null;
+}
+
+export interface EmailSearchResponse {
+  query: string;
+  contacts: EmailSearchResult[];
+}
+
 // ============ Contact View Options (Phase 2) ============
 
 export type ContactView = 'mine' | 'family' | 'all';

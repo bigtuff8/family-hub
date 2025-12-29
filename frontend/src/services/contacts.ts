@@ -24,6 +24,7 @@ import type {
   PublishToFamilyResponse,
   SmartLookupResponse,
   ContactView,
+  EmailSearchResponse,
 } from '../types/contacts';
 
 export interface ContactsQueryParams {
@@ -115,6 +116,14 @@ export const contactsApi = {
   // Returns: family users -> personal contacts -> family contacts -> email suggestion
   smartLookup: async (query: string, limit: number = 10): Promise<SmartLookupResponse> => {
     const response = await api.get('/contacts/lookup', {
+      params: { q: query, limit }
+    });
+    return response.data;
+  },
+
+  // Search contacts by email only (for event email input field)
+  searchByEmail: async (query: string, limit: number = 10): Promise<EmailSearchResponse> => {
+    const response = await api.get('/contacts/search-by-email', {
       params: { q: query, limit }
     });
     return response.data;

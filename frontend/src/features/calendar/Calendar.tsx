@@ -131,9 +131,12 @@ export default function Calendar() {
     loadEvents();
   }, []);
 
-  const loadEvents = async () => {
+  const loadEvents = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load, not refreshes (prevents modal from closing)
+      if (!isRefresh) {
+        setLoading(true);
+      }
       setError(null);
 
       // Get a wider date range to support all views (3 months: previous, current, next)
@@ -269,7 +272,7 @@ export default function Calendar() {
         <MobileHeader />
         <CalendarViews
           events={events}
-          onRefresh={loadEvents}
+          onRefresh={() => loadEvents(true)}
           onNavigateToDashboard={() => handleViewTypeChange('dashboard')}
           showViewToggle={!isMobile}
           currentViewType={viewType}
@@ -296,7 +299,7 @@ export default function Calendar() {
               onClose={() => setShowMobileCreateModal(false)}
               onSuccess={() => {
                 setShowMobileCreateModal(false);
-                loadEvents();
+                loadEvents(true);
               }}
             />
           </>
@@ -310,11 +313,11 @@ export default function Calendar() {
     <>
       <MobileHeader />
       {isMobile ? (
-        <CalendarMobile events={events} onRefresh={loadEvents} onNavigateToCalendar={() => handleViewTypeChange('calendar')} />
+        <CalendarMobile events={events} onRefresh={() => loadEvents(true)} onNavigateToCalendar={() => handleViewTypeChange('calendar')} />
       ) : (
         <CalendarTablet
           events={events}
-          onRefresh={loadEvents}
+          onRefresh={() => loadEvents(true)}
           onNavigateToCalendar={() => handleViewTypeChange('calendar')}
           showViewToggle={true}
           currentViewType={viewType}
