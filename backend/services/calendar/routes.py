@@ -583,3 +583,66 @@ async def update_attendee_rsvp(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error updating RSVP: {str(e)}")
+
+
+# ==========================================
+# GOOGLE CALENDAR SYNC (PHASE 2.2)
+# ==========================================
+
+from fastapi.responses import RedirectResponse
+from services.calendar.google_client import GoogleCalendarClient
+
+@router.get("/auth/google/authorize")
+async def google_authorize(
+    user_id: UUID,
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Start OAuth2 flow for Google Calendar."""
+    try:
+        client = GoogleCalendarClient(db)
+        url = client.get_auth_url(user_id, tenant_id)
+        return RedirectResponse(url)
+    except Exception as e:
+        print(f"❌ Error generating auth URL: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating auth URL: {str(e)}")
+
+
+@router.get("/auth/google/callback")
+async def google_callback(
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Handle OAuth2 callback from Google."""
+    try:
+        client = GoogleCalendarClient(db)
+        link = await client.handle_callback(code, state)
+        
+        # Return simple success page (frontend can close this window)
+        return {
+            "status": "success", 
+            "message": "Google Calendar connected successfully",
+            "provider": "google",
+            "account": link.calendar_name
+        }
+    except Exception as e:
+        print(f"❌ Error in OAuth callback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error in OAuth callback: {str(e)}")
+
+
+@router.get("/sync/google")
+async def trigger_google_sync(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually trigger a Google Calendar sync for a user."""
+    try:
+        client = GoogleCalendarClient(db)
+        count = await client.sync_events(str(user_id))
+        return {"status": "success", "synced_events": count}
+    except Exception as e:
+        print(f"❌ Error syncing events: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error syncing events: {str(e)}")
+
+

@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LoginPage, ProtectedRoute } from './features/auth';
 import { ShoppingListPage } from './features/shopping';
 import { ContactsPage } from './features/contacts/ContactsPage';
+import { SettingsPage } from './features/settings';
 import Calendar from './features/calendar/Calendar';
 import './App.css';
 
@@ -53,6 +54,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ContactsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />

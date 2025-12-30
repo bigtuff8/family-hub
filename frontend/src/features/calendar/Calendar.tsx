@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Spin, Alert, Button, Space, FloatButton, Dropdown } from 'antd';
-import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CalendarOutlined, AppstoreOutlined, MenuOutlined, PlusOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, SettingOutlined } from '@ant-design/icons';
 import CalendarTablet from './CalendarTablet';
 import CalendarMobile from './CalendarMobile';
 import CalendarViews from './CalendarViews';
@@ -98,6 +98,12 @@ export default function Calendar() {
       icon: <TeamOutlined />,
       label: 'Contacts',
       onClick: () => navigate('/contacts'),
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+      onClick: () => navigate('/settings'),
     },
     {
       type: 'divider' as const,

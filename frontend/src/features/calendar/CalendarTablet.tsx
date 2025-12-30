@@ -1,5 +1,5 @@
 import { Card, Avatar, Button, Space, Dropdown } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, PlusOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -89,6 +89,12 @@ export default function CalendarTablet({
       icon: <TeamOutlined />,
       label: 'Contacts',
       onClick: () => navigate('/contacts'),
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+      onClick: () => navigate('/settings'),
     },
     {
       type: 'divider' as const,
