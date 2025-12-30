@@ -31,3 +31,6 @@ postgres_data/
 .DS_Store
 Thumbs.db*.bak
 *.manual_backup
+
+# Logs
+backend_logs.txt

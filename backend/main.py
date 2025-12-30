@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 # Import database initialization
 from shared.database import init_db
 
+# Import scheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from services.calendar.jobs import sync_all_calendars
+
 # Import routers
 from services.calendar.routes import router as calendar_router
 from services.auth.routes import router as auth_router
@@ -29,10 +33,18 @@ async def lifespan(app: FastAPI):
     print("📊 Initializing database...")
     await init_db()
     print("✅ Database initialized")
+
+    # Initialize Scheduler
+    scheduler = AsyncIOScheduler()
+    # Schedule sync job every 15 minutes
+    scheduler.add_job(sync_all_calendars, 'interval', minutes=15)
+    scheduler.start()
+    print("⏰ Scheduler started (Generic Sync: 15m)")
     
     yield
     
     print("🛑 Family Hub API shutting down...")
+    scheduler.shutdown()
 
 app = FastAPI(
     title="Family Hub API",
