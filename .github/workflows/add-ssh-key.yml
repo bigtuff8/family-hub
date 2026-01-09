@@ -1,0 +1,19 @@
+name: Add SSH Key
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  add-key:
+    runs-on: self-hosted
+
+    steps:
+      - name: Add SSH public key to authorized_keys
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH1tdqN5kdQ+VXCtc7xvI6VplfVDxR0VLMsDvTfvdZXl james@home-desktop" >> ~/.ssh/authorized_keys
+          chmod 600 ~/.ssh/authorized_keys
+          echo "SSH key added successfully!"
+          echo "Authorized keys now contains:"
+          cat ~/.ssh/authorized_keys
