@@ -1,0 +1,279 @@
+/**
+ * Settings page styles - Option A: Full-Screen Navigation
+ * Location: frontend/src/features/settings/SettingsPage.css
+ */
+
+/* Content area */
+.settings-content {
+    padding: 16px;
+    background: #fef7f0;
+    min-height: calc(100vh - 140px);
+}
+
+/* Sub-header */
+.settings-subheader {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    background: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 12px;
+}
+
+.settings-subheader .subheader-back {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    color: #1a2332;
+    transition: background 0.2s;
+}
+
+.settings-subheader .subheader-back:hover {
+    background: #e8e8e8;
+}
+
+.settings-subheader .subheader-title-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-subheader .subheader-icon {
+    font-size: 24px;
+    color: #2dd4bf;
+}
+
+.settings-subheader .subheader-title {
+    margin: 0 !important;
+    font-size: 20px;
+}
+
+/* Main view - Category cards */
+.settings-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.settings-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.settings-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.settings-card:active {
+    transform: scale(0.98);
+}
+
+.settings-card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.settings-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-card-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a2332;
+    margin-bottom: 4px;
+}
+
+.settings-card-subtitle {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.settings-card-arrow {
+    color: #d1d5db;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* Detail view content */
+.settings-detail-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.settings-section {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.settings-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 16px 16px 8px;
+}
+
+.settings-detail-item {
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid #f5f5f5;
+    gap: 12px;
+}
+
+.settings-detail-item:last-child {
+    border-bottom: none;
+}
+
+.settings-detail-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-detail-item-title {
+    font-weight: 500;
+    font-size: 16px;
+    color: #1a2332;
+    margin-bottom: 2px;
+}
+
+.settings-detail-item-value {
+    font-size: 14px;
+    color: #64748b;
+}
+
+/* Service icons */
+.service-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.service-icon.google {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    color: #DB4437;
+    font-size: 20px;
+}
+
+.service-icon.outlook {
+    background: #0078d4;
+    color: white;
+}
+
+/* Status badge */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-badge.connected {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.status-badge.not-connected {
+    background: #f5f5f5;
+    color: #64748b;
+}
+
+/* Toggle switch */
+.toggle-switch {
+    width: 48px;
+    height: 28px;
+    background: #e5e5e5;
+    border-radius: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.toggle-switch.active {
+    background: #2dd4bf;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: left 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active::after {
+    left: 22px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .settings-content {
+        padding: 12px;
+    }
+
+    .settings-card {
+        padding: 16px;
+    }
+
+    .settings-card-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+
+    .settings-card-title {
+        font-size: 16px;
+    }
+
+    .settings-card-subtitle {
+        font-size: 13px;
+    }
+
+    .settings-subheader {
+        padding: 12px 16px;
+    }
+
+    .settings-subheader .subheader-title {
+        font-size: 18px;
+    }
+}
