@@ -245,6 +245,41 @@
     left: 22px;
 }
 
+/* Desktop layout */
+.settings-desktop-layout {
+    display: flex;
+    background: #fff;
+    border-radius: 12px;
+    min-height: 500px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.settings-sidebar {
+    width: 220px;
+    min-width: 220px;
+    border-right: 1px solid #f0f0f0;
+    padding: 16px 0;
+}
+
+.settings-sidebar .ant-menu-item {
+    margin: 4px 8px;
+    border-radius: 8px;
+}
+
+.settings-sidebar .ant-menu-item-selected {
+    background: #f0fdfa !important;
+}
+
+.settings-main {
+    flex: 1;
+    padding: 24px;
+    overflow: auto;
+}
+
+.settings-main .settings-detail-content {
+    max-width: none;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .settings-content {

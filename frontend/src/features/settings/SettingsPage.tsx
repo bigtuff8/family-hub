@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Layout, Typography, Button, Space, Dropdown, message } from 'antd';
+import { useState, useEffect } from 'react';
+import { Layout, Typography, Button, Space, Dropdown, Menu, message } from 'antd';
 import {
     UserOutlined,
     SettingOutlined,
@@ -21,7 +21,6 @@ import { useAuth } from '../auth';
 import WeatherWidget from '../../components/WeatherWidget';
 import { getInitials } from '../../utils/strings';
 import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar } from '../../services/settings';
-import { useEffect } from 'react';
 import '../contacts/ContactsPage.css';
 import './SettingsPage.css';
 
@@ -30,10 +29,25 @@ const { Title, Text } = Typography;
 
 type SettingsView = 'main' | 'profile' | 'accounts' | 'security' | 'system';
 
+// Hook to detect mobile screen
+const useIsMobile = (breakpoint = 768) => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < breakpoint);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < breakpoint);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [breakpoint]);
+
+    return isMobile;
+};
+
 export const SettingsPage = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const [currentView, setCurrentView] = useState<SettingsView>('main');
+    const isMobile = useIsMobile();
+    const [currentView, setCurrentView] = useState<SettingsView>('accounts');
+    const [mobileView, setMobileView] = useState<SettingsView>('main');
     const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -52,15 +66,17 @@ export const SettingsPage = () => {
             searchParams.delete('provider');
             setSearchParams(searchParams);
             setCurrentView('accounts');
+            setMobileView('accounts');
         }
     }, []);
 
     // Load accounts when viewing accounts section
     useEffect(() => {
-        if (currentView === 'accounts' && user) {
+        const activeView = isMobile ? mobileView : currentView;
+        if (activeView === 'accounts' && user) {
             loadAccounts();
         }
-    }, [currentView, user]);
+    }, [currentView, mobileView, user, isMobile]);
 
     const loadAccounts = async () => {
         if (!user) return;
@@ -138,6 +154,12 @@ export const SettingsPage = () => {
         }
     ];
 
+    const sidebarMenuItems = settingsCategories.map(cat => ({
+        key: cat.key,
+        icon: cat.icon,
+        label: cat.title
+    }));
+
     const renderHeader = () => (
         <header className="contacts-header-full">
             <div className="header-left">
@@ -163,15 +185,15 @@ export const SettingsPage = () => {
         </header>
     );
 
-    const renderSubheader = () => {
-        const isDetailView = currentView !== 'main';
-        const currentCategory = settingsCategories.find(c => c.key === currentView);
+    const renderMobileSubheader = () => {
+        const isDetailView = mobileView !== 'main';
+        const currentCategory = settingsCategories.find(c => c.key === mobileView);
 
         return (
             <div className="settings-subheader">
                 {isDetailView ? (
                     <>
-                        <div className="subheader-back" onClick={() => setCurrentView('main')}>
+                        <div className="subheader-back" onClick={() => setMobileView('main')}>
                             <LeftOutlined />
                         </div>
                         <div className="subheader-title-area">
@@ -188,30 +210,20 @@ export const SettingsPage = () => {
         );
     };
 
-    const renderMainView = () => (
-        <div className="settings-cards">
-            {settingsCategories.map(category => (
-                <div
-                    key={category.key}
-                    className="settings-card"
-                    onClick={() => setCurrentView(category.key as SettingsView)}
-                >
-                    <div className="settings-card-icon" style={{ background: category.color }}>
-                        {category.icon}
-                    </div>
-                    <div className="settings-card-content">
-                        <div className="settings-card-title">{category.title}</div>
-                        <div className="settings-card-subtitle">{category.subtitle}</div>
-                    </div>
-                    <div className="settings-card-arrow">
-                        <RightOutlined />
-                    </div>
+    const renderDesktopSubheader = () => (
+        <div className="contacts-subheader">
+            <div className="subheader-left">
+                <SettingOutlined className="subheader-icon" />
+                <div>
+                    <Title level={4} className="subheader-title">Settings</Title>
                 </div>
-            ))}
+            </div>
         </div>
     );
 
-    const renderAccountsView = () => (
+    // ============ DETAIL CONTENT VIEWS ============
+
+    const renderAccountsContent = () => (
         <div className="settings-detail-content">
             <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
                 Connect your external calendars to see all your events in one place.
@@ -220,7 +232,6 @@ export const SettingsPage = () => {
             <div className="settings-section">
                 <div className="settings-section-title">Calendar Sync</div>
 
-                {/* Google Calendar */}
                 <div className="settings-detail-item">
                     <div className="service-icon google">
                         <GoogleOutlined />
@@ -240,7 +251,6 @@ export const SettingsPage = () => {
                     )}
                 </div>
 
-                {/* Outlook (placeholder) */}
                 <div className="settings-detail-item">
                     <div className="service-icon outlook">
                         <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -285,7 +295,7 @@ export const SettingsPage = () => {
         </div>
     );
 
-    const renderProfileView = () => (
+    const renderProfileContent = () => (
         <div className="settings-detail-content">
             <div className="settings-section">
                 <div className="settings-section-title">Your Information</div>
@@ -333,7 +343,7 @@ export const SettingsPage = () => {
         </div>
     );
 
-    const renderSecurityView = () => (
+    const renderSecurityContent = () => (
         <div className="settings-detail-content">
             <div className="settings-section">
                 <div className="settings-section-title">Authentication</div>
@@ -376,7 +386,7 @@ export const SettingsPage = () => {
         </div>
     );
 
-    const renderSystemView = () => (
+    const renderSystemContent = () => (
         <div className="settings-detail-content">
             <div className="settings-section">
                 <div className="settings-section-title">Display</div>
@@ -431,30 +441,88 @@ export const SettingsPage = () => {
         </div>
     );
 
-    const renderContent = () => {
-        switch (currentView) {
-            case 'main':
-                return renderMainView();
+    const renderDetailContent = (view: SettingsView) => {
+        switch (view) {
             case 'profile':
-                return renderProfileView();
+                return renderProfileContent();
             case 'accounts':
-                return renderAccountsView();
+                return renderAccountsContent();
             case 'security':
-                return renderSecurityView();
+                return renderSecurityContent();
             case 'system':
-                return renderSystemView();
+                return renderSystemContent();
             default:
-                return renderMainView();
+                return renderAccountsContent();
         }
     };
+
+    // ============ MOBILE LAYOUT ============
+
+    const renderMobileMainView = () => (
+        <div className="settings-cards">
+            {settingsCategories.map(category => (
+                <div
+                    key={category.key}
+                    className="settings-card"
+                    onClick={() => setMobileView(category.key as SettingsView)}
+                >
+                    <div className="settings-card-icon" style={{ background: category.color }}>
+                        {category.icon}
+                    </div>
+                    <div className="settings-card-content">
+                        <div className="settings-card-title">{category.title}</div>
+                        <div className="settings-card-subtitle">{category.subtitle}</div>
+                    </div>
+                    <div className="settings-card-arrow">
+                        <RightOutlined />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
+    const renderMobileLayout = () => (
+        <>
+            {renderMobileSubheader()}
+            <Content className="settings-content">
+                {mobileView === 'main' ? renderMobileMainView() : renderDetailContent(mobileView)}
+            </Content>
+        </>
+    );
+
+    // ============ DESKTOP LAYOUT ============
+
+    const renderDesktopLayout = () => (
+        <>
+            {renderDesktopSubheader()}
+            <Content style={{ padding: '24px', background: '#f0f2f5' }}>
+                <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+                    <div className="settings-desktop-layout">
+                        <div className="settings-sidebar">
+                            <Menu
+                                mode="inline"
+                                selectedKeys={[currentView]}
+                                onClick={({ key }) => setCurrentView(key as SettingsView)}
+                                style={{ border: 0, background: 'transparent' }}
+                                items={sidebarMenuItems}
+                            />
+                        </div>
+                        <div className="settings-main">
+                            <Title level={4} style={{ marginBottom: 24 }}>
+                                {settingsCategories.find(c => c.key === currentView)?.title}
+                            </Title>
+                            {renderDetailContent(currentView)}
+                        </div>
+                    </div>
+                </div>
+            </Content>
+        </>
+    );
 
     return (
         <div className="contacts-page">
             {renderHeader()}
-            {renderSubheader()}
-            <Content className="settings-content">
-                {renderContent()}
-            </Content>
+            {isMobile ? renderMobileLayout() : renderDesktopLayout()}
         </div>
     );
 };
