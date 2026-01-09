@@ -9,16 +9,16 @@ export interface ConnectedAccount {
     receive_invites: boolean;
 }
 
-export const getConnectedAccounts = async (): Promise<ConnectedAccount[]> => {
-    // TODO: Add backend endpoint for this. For now we just return empty or mock if needed.
-    // We need to implement GET /api/v1/auth/accounts in backend first? 
-    // Actually, let's assume we will add that backend endpoint soon.
-    // For now, the implementation plan didn't specify listing accounts, just connecting.
-    // So we might skip listing for this exact step, but let's prepare the service.
+export const getConnectedAccounts = async (userId: string): Promise<ConnectedAccount[]> => {
     try {
-        const response = await api.get('/api/v1/auth/accounts');
+        const response = await api.get(`/api/v1/calendar/connected-accounts?user_id=${userId}`);
         return response.data;
     } catch (error) {
         return [];
     }
+};
+
+export const syncGoogleCalendar = async (userId: string) => {
+    const response = await api.get(`/api/v1/calendar/sync/google?user_id=${userId}`);
+    return response.data;
 };
