@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: ['raspberrypi.tail30d2e6.ts.net', 'localhost', '192.168.68.66', '100.118.56.111'],
     proxy: {
       '/api': {
         target: 'http://backend:8000',
