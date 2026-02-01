@@ -7,7 +7,7 @@ Uses OAuth 2.0 to connect user's Outlook/Microsoft 365 calendar.
 import os
 import json
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -76,7 +76,7 @@ class OutlookCalendarClient:
         access_token = tokens["access_token"]
         refresh_token = tokens.get("refresh_token")
         expires_in = tokens.get("expires_in", 3600)
-        expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
         # Get user info to display account name
         async with httpx.AsyncClient() as client:
@@ -137,7 +137,7 @@ class OutlookCalendarClient:
             return None
 
         # Check if token is expired or about to expire (5 min buffer)
-        if calendar_link.token_expires_at and calendar_link.token_expires_at > datetime.utcnow() + timedelta(minutes=5):
+        if calendar_link.token_expires_at and calendar_link.token_expires_at > datetime.now(timezone.utc) + timedelta(minutes=5):
             return calendar_link.access_token_encrypted
 
         # Token expired, try to refresh
@@ -169,7 +169,7 @@ class OutlookCalendarClient:
             if tokens.get("refresh_token"):
                 calendar_link.refresh_token_encrypted = tokens["refresh_token"]
             expires_in = tokens.get("expires_in", 3600)
-            calendar_link.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            calendar_link.token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
             calendar_link.last_error = None
             await self.db.commit()
 
@@ -202,7 +202,7 @@ class OutlookCalendarClient:
 
         # Fetch events from Microsoft Graph
         # Use calendarView for expanded recurring events
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         start_time = now.isoformat() + "Z"
         end_time = (now + timedelta(days=365)).isoformat() + "Z"  # 1 year ahead
 
@@ -239,7 +239,7 @@ class OutlookCalendarClient:
                 await self._upsert_event(event, calendar_link)
 
             # Update sync timestamp
-            calendar_link.last_sync_at = datetime.utcnow()
+            calendar_link.last_sync_at = datetime.now(timezone.utc)
             calendar_link.last_error = None
             await self.db.commit()
 
@@ -290,7 +290,7 @@ class OutlookCalendarClient:
             existing_event.start_time = start_time
             existing_event.end_time = end_time
             existing_event.all_day = is_all_day
-            existing_event.updated_at = datetime.utcnow()
+            existing_event.updated_at = datetime.now(timezone.utc)
         else:
             # Create
             new_event = CalendarEvent(
