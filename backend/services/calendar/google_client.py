@@ -16,8 +16,19 @@ class GoogleCalendarClient:
         self.db = db
         self.client_id = os.getenv("GOOGLE_CLIENT_ID")
         self.client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        # Update to match the mounted API prefix
-        self.redirect_uri = "http://localhost:8000/api/v1/calendar/auth/google/callback"
+        # Use API_BASE_URL env var, fallback to localhost for local dev
+        base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+        self.redirect_uri = f"{base_url}/api/v1/calendar/auth/google/callback"
+
+    def _get_client_config(self):
+        return {
+            "web": {
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+            }
+        }
 
     def get_auth_url(self, user_id: str, tenant_id: str):
         """Generate the Google OAuth2 consent URL."""
@@ -81,18 +92,10 @@ class GoogleCalendarClient:
         await self.db.commit()
         return calendar_link
 
-    def _get_client_config(self):
-        return {
-            "web": {
-                "client_id": self.client_id,
-                "client_secret": self.client_secret,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-            }
-        }
 
-    async def sync_events(self, user_id: str):
-        """Sync events for a specific user's connected calendar."""
+
+    async def _build_service(self, user_id: str):
+        """Helper to build authenticated Google Calendar service."""
         # Get credentials from DB
         stmt = select(UserExternalCalendar).where(
             UserExternalCalendar.user_id == user_id,
@@ -103,8 +106,7 @@ class GoogleCalendarClient:
         calendar_link = result.scalar_one_or_none()
 
         if not calendar_link:
-            print(f"No active Google Calendar found for user {user_id}")
-            return
+            return None
 
         # Build credentials object
         creds = Credentials(
@@ -126,11 +128,41 @@ class GoogleCalendarClient:
                 await self.db.commit()
             except Exception as e:
                 print(f"Failed to refresh token: {e}")
-                # Optional: mark as inactive or needs_reauth
-                return
+                return None
 
-        # Build service
-        service = build('calendar', 'v3', credentials=creds)
+        return build('calendar', 'v3', credentials=creds)
+
+    async def sync_events(self, user_id: str):
+        """Sync events for a specific user's connected calendar."""
+        service = await self._build_service(user_id)
+        if not service:
+            print(f"No active Google Calendar found for user {user_id}")
+            return
+        
+        # Get calendar_link again for metadata use (simplified for now as service works)
+        # Ideally _build_service returns both, but for MVP we just need service here.
+        
+        # We need calendar_link for upsert, so let's just re-fetch or refactor. 
+        # Refactoring to keep it simple: let's stick to the current flow in sync_events 
+        # but use _build_service in new methods.
+        
+        # Actually, let's keep sync_events slightly duplicated or refactor it fully. 
+        # To avoid breaking existing sync logic during this step, I will leave sync_events mostly as is 
+        # but use _build_service for the NEW methods. 
+        # Wait, I should refactor sync_events to use _build_service to be clean.
+        
+        stmt = select(UserExternalCalendar).where(
+            UserExternalCalendar.user_id == user_id,
+            UserExternalCalendar.provider == 'google',
+            UserExternalCalendar.is_active == True
+        )
+        result = await self.db.execute(stmt)
+        calendar_link = result.scalar_one_or_none()
+        
+        if not calendar_link:
+             return 0
+
+        # ... (rest of sync_events logic below)
 
         # List events (Sync)
         # Fetch future events only (User Preference), but increase limit to catch events far in future
@@ -240,4 +272,93 @@ class GoogleCalendarClient:
                 color=calendar_link.calendar_color or '#DB4437' # Google Red default
             )
             self.db.add(new_event)
+
+    async def create_google_event(self, user_id: str, event_data: dict) -> str:
+        """
+        Create an event on Google Calendar.
+        Returns the Google Event ID.
+        """
+        service = await self._build_service(user_id)
+        if not service:
+            return None
+
+        # Map local event data to Google Event Resource
+        google_event = {
+            'summary': event_data['title'],
+            'description': event_data.get('description', ''),
+            'location': event_data.get('location', ''),
+        }
+
+        # Handle dates
+        if event_data.get('all_day'):
+            google_event['start'] = {'date': event_data['start_time'][:10]} # YYYY-MM-DD
+            google_event['end'] = {'date': event_data['end_time'][:10]}
+        else:
+            google_event['start'] = {'dateTime': event_data['start_time']}
+            google_event['end'] = {'dateTime': event_data['end_time']}
+
+        # Handle recurrence
+        if event_data.get('recurrence_rule'):
+            # Google requires "RRULE:" prefix usually, but our DB stores RRULE:FREQ=...
+            # We assume stored rule is valid RFC5545
+            # We need to ensure it's a list for Google
+            google_event['recurrence'] = [f"RRULE:{event_data['recurrence_rule']}"] if not event_data['recurrence_rule'].startswith('RRULE:') else [event_data['recurrence_rule']]
+
+        try:
+            created_event = service.events().insert(calendarId='primary', body=google_event).execute()
+            return created_event['id']
+        except Exception as e:
+            print(f"Error creating Google event: {e}")
+            return None
+
+    async def update_google_event(self, user_id: str, external_event_id: str, event_data: dict):
+        """Update an existing Google Calendar event."""
+        service = await self._build_service(user_id)
+        if not service:
+            return
+
+        # Map updates (similar to create)
+        google_event = {
+            'summary': event_data['title'],
+            'description': event_data.get('description', ''),
+            'location': event_data.get('location', ''),
+        }
+
+        if event_data.get('all_day'):
+            google_event['start'] = {'date': event_data['start_time'][:10]}
+            google_event['end'] = {'date': event_data['end_time'][:10]}
+        else:
+            google_event['start'] = {'dateTime': event_data['start_time']}
+            google_event['end'] = {'dateTime': event_data['end_time']}
+
+        if event_data.get('recurrence_rule'):
+             google_event['recurrence'] = [f"RRULE:{event_data['recurrence_rule']}"] if not event_data['recurrence_rule'].startswith('RRULE:') else [event_data['recurrence_rule']]
+        else:
+             google_event['recurrence'] = [] # Clear if removed
+
+
+        try:
+            service.events().patch(
+                calendarId='primary',
+                eventId=external_event_id,
+                body=google_event
+            ).execute()
+        except Exception as e:
+            print(f"Error updating Google event: {e}")
+
+    async def delete_google_event(self, user_id: str, external_event_id: str):
+        """Delete an event from Google Calendar."""
+        service = await self._build_service(user_id)
+        if not service:
+            return
+
+        try:
+            service.events().delete(
+                calendarId='primary',
+                eventId=external_event_id
+            ).execute()
+        except Exception as e:
+             # 410 Gone or 404 Not Found is fine
+            if "404" not in str(e) and "410" not in str(e):
+                print(f"Error deleting Google event: {e}")
 
