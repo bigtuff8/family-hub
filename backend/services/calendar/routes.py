@@ -1,7 +1,7 @@
 # backend/services/calendar/routes.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from sqlalchemy.orm import selectinload
 from shared.models import CalendarEvent, User, EventAttendee, Contact, UserExternalCalendar
 from typing import List, Optional
@@ -936,4 +936,52 @@ async def get_connected_accounts(
     except Exception as e:
         print(f"❌ Error fetching connected accounts: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching connected accounts: {str(e)}")
+
+
+@router.delete("/disconnect/{provider}")
+async def disconnect_calendar(
+    provider: str,
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Disconnect a calendar provider and optionally remove synced events."""
+    try:
+        # Find the calendar connection
+        stmt = select(UserExternalCalendar).where(
+            UserExternalCalendar.user_id == user_id,
+            UserExternalCalendar.provider == provider,
+            UserExternalCalendar.is_active == True
+        )
+        result = await db.execute(stmt)
+        calendar = result.scalar_one_or_none()
+
+        if not calendar:
+            raise HTTPException(status_code=404, detail=f"No active {provider} calendar found")
+
+        # Determine the external_calendar_id based on provider
+        external_cal_id = 'primary' if provider == 'google' else 'outlook_primary'
+
+        # Delete synced events from this calendar
+        delete_events_stmt = delete(CalendarEvent).where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.external_calendar_id == external_cal_id
+        )
+        await db.execute(delete_events_stmt)
+
+        # Deactivate the calendar connection (soft delete)
+        calendar.is_active = False
+        calendar.access_token = None
+        calendar.refresh_token = None
+
+        await db.commit()
+
+        print(f"✅ Disconnected {provider} calendar for user {user_id}")
+        return {"status": "success", "message": f"{provider.title()} calendar disconnected"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        print(f"❌ Error disconnecting {provider} calendar: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error disconnecting calendar: {str(e)}")
 

@@ -27,3 +27,7 @@ export const syncOutlookCalendar = async (userId: string) => {
     const response = await api.get(`/api/v1/calendar/sync/outlook?user_id=${userId}`);
     return response.data;
 };
+
+export const disconnectCalendar = async (userId: string, provider: string): Promise<void> => {
+    await api.delete(`/api/v1/calendar/disconnect/${provider}?user_id=${userId}`);
+};

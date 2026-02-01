@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Typography, Button, Space, Dropdown, Menu, message } from 'antd';
+import { Layout, Typography, Button, Space, Dropdown, Menu, message, Modal } from 'antd';
 import {
     UserOutlined,
     SettingOutlined,
@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 import { useAuth } from '../auth';
 import WeatherWidget from '../../components/WeatherWidget';
 import { getInitials } from '../../utils/strings';
-import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar } from '../../services/settings';
+import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar, syncOutlookCalendar, disconnectCalendar } from '../../services/settings';
 import '../contacts/ContactsPage.css';
 import './SettingsPage.css';
 
@@ -51,6 +51,9 @@ export const SettingsPage = () => {
     const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
+    const [disconnecting, setDisconnecting] = useState(false);
+    const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
+    const [disconnectProvider, setDisconnectProvider] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
 
     const userInitials = getInitials(user?.name) || 'U';
@@ -109,17 +112,46 @@ export const SettingsPage = () => {
         window.location.href = authUrl;
     };
 
-    const handleSyncNow = async () => {
+    const handleSyncNow = async (provider: string = 'google') => {
         if (!user) return;
         setSyncing(true);
         try {
-            const result = await syncGoogleCalendar(user.id);
-            message.success(`Sync complete! Processed ${result.synced_events} events.`);
+            const result = provider === 'outlook'
+                ? await syncOutlookCalendar(user.id)
+                : await syncGoogleCalendar(user.id);
+            message.success(`Sync complete! Processed ${result.synced_events || 0} events.`);
+            await loadAccounts(); // Refresh to get updated last_sync time
         } catch (error) {
             message.error('Sync failed. Please try again.');
         } finally {
             setSyncing(false);
         }
+    };
+
+    const handleDisconnectClick = (provider: string) => {
+        setDisconnectProvider(provider);
+        setDisconnectModalVisible(true);
+    };
+
+    const handleDisconnectConfirm = async () => {
+        if (!user || !disconnectProvider) return;
+        setDisconnecting(true);
+        try {
+            await disconnectCalendar(user.id, disconnectProvider);
+            message.success(`${disconnectProvider === 'google' ? 'Google Calendar' : 'Outlook'} disconnected successfully`);
+            setDisconnectModalVisible(false);
+            setDisconnectProvider(null);
+            await loadAccounts(); // Refresh the list
+        } catch (error) {
+            message.error('Failed to disconnect. Please try again.');
+        } finally {
+            setDisconnecting(false);
+        }
+    };
+
+    const handleDisconnectCancel = () => {
+        setDisconnectModalVisible(false);
+        setDisconnectProvider(null);
     };
 
     const userMenuItems = [
@@ -232,87 +264,156 @@ export const SettingsPage = () => {
 
     // ============ DETAIL CONTENT VIEWS ============
 
-    const renderAccountsContent = () => (
-        <div className="settings-detail-content">
-            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
-                Connect your external calendars to see all your events in one place.
-            </Text>
+    const renderAccountsContent = () => {
+        const googleAccount = accounts.find(a => a.provider === 'google');
+        const outlookAccount = accounts.find(a => a.provider === 'outlook');
 
-            <div className="settings-section">
-                <div className="settings-section-title">Calendar Sync</div>
+        return (
+            <div className="settings-detail-content">
+                <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                    Connect your external calendars to see all your events in one place.
+                </Text>
 
-                <div className="settings-detail-item">
-                    <div className="service-icon google">
-                        <GoogleOutlined />
-                    </div>
-                    <div className="settings-detail-item-content">
-                        <div className="settings-detail-item-title">Google Calendar</div>
-                        <div className="settings-detail-item-value">
-                            {accounts.find(a => a.provider === 'google')?.email_address || 'Not connected'}
-                        </div>
-                    </div>
-                    {accounts.find(a => a.provider === 'google') ? (
-                        <span className="status-badge connected">Connected</span>
-                    ) : (
-                        <Button type="primary" size="small" onClick={handleConnectGoogle}>
-                            Connect
-                        </Button>
-                    )}
-                </div>
-
-                <div className="settings-detail-item">
-                    <div className="service-icon outlook">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                            <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/>
-                        </svg>
-                    </div>
-                    <div className="settings-detail-item-content">
-                        <div className="settings-detail-item-title">Microsoft Outlook</div>
-                        <div className="settings-detail-item-value">
-                            {accounts.find(a => a.provider === 'outlook')
-                                ? accounts.find(a => a.provider === 'outlook')?.calendar_name || 'Connected'
-                                : 'Sync your Outlook calendar'}
-                        </div>
-                    </div>
-                    {accounts.find(a => a.provider === 'outlook') ? (
-                        <span className="status-badge connected">Connected</span>
-                    ) : (
-                        <Button type="primary" size="small" onClick={handleConnectOutlook}>
-                            Connect
-                        </Button>
-                    )}
-                </div>
-            </div>
-
-            {accounts.length > 0 && (
                 <div className="settings-section">
-                    <div className="settings-section-title">Sync Options</div>
+                    <div className="settings-section-title">Calendar Sync</div>
 
+                    {/* Google Calendar */}
                     <div className="settings-detail-item">
-                        <div className="settings-detail-item-content">
-                            <div className="settings-detail-item-title">Sync Now</div>
-                            <div className="settings-detail-item-value">Last synced: Just now</div>
+                        <div className="service-icon google">
+                            <GoogleOutlined />
                         </div>
-                        <Button
-                            icon={<SyncOutlined spin={syncing} />}
-                            onClick={handleSyncNow}
-                            loading={syncing}
-                        >
-                            Sync
-                        </Button>
+                        <div className="settings-detail-item-content">
+                            <div className="settings-detail-item-title">Google Calendar</div>
+                            <div className="settings-detail-item-value">
+                                {googleAccount?.email_address || 'Not connected'}
+                            </div>
+                        </div>
+                        {googleAccount ? (
+                            <Space>
+                                <span className="status-badge connected">Connected</span>
+                                <Button
+                                    size="small"
+                                    danger
+                                    onClick={() => handleDisconnectClick('google')}
+                                >
+                                    Disconnect
+                                </Button>
+                            </Space>
+                        ) : (
+                            <Button type="primary" size="small" onClick={handleConnectGoogle}>
+                                Connect
+                            </Button>
+                        )}
                     </div>
 
+                    {/* Outlook Calendar */}
                     <div className="settings-detail-item">
-                        <div className="settings-detail-item-content">
-                            <div className="settings-detail-item-title">Auto-sync</div>
-                            <div className="settings-detail-item-value">Every 15 minutes</div>
+                        <div className="service-icon outlook">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                                <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/>
+                            </svg>
                         </div>
-                        <div className="toggle-switch active" />
+                        <div className="settings-detail-item-content">
+                            <div className="settings-detail-item-title">Microsoft Outlook</div>
+                            <div className="settings-detail-item-value">
+                                {outlookAccount?.email_address || 'Not connected'}
+                            </div>
+                        </div>
+                        {outlookAccount ? (
+                            <Space>
+                                <span className="status-badge connected">Connected</span>
+                                <Button
+                                    size="small"
+                                    danger
+                                    onClick={() => handleDisconnectClick('outlook')}
+                                >
+                                    Disconnect
+                                </Button>
+                            </Space>
+                        ) : (
+                            <Button type="primary" size="small" onClick={handleConnectOutlook}>
+                                Connect
+                            </Button>
+                        )}
                     </div>
                 </div>
-            )}
-        </div>
-    );
+
+                {/* Sync Options - only show if accounts connected */}
+                {accounts.length > 0 && (
+                    <div className="settings-section">
+                        <div className="settings-section-title">Sync Options</div>
+
+                        {googleAccount && (
+                            <div className="settings-detail-item">
+                                <div className="service-icon google" style={{ width: 32, height: 32 }}>
+                                    <GoogleOutlined style={{ fontSize: 14 }} />
+                                </div>
+                                <div className="settings-detail-item-content">
+                                    <div className="settings-detail-item-title">Sync Google Calendar</div>
+                                    <div className="settings-detail-item-value">Pull latest events from Google</div>
+                                </div>
+                                <Button
+                                    icon={<SyncOutlined spin={syncing} />}
+                                    onClick={() => handleSyncNow('google')}
+                                    loading={syncing}
+                                    size="small"
+                                >
+                                    Sync
+                                </Button>
+                            </div>
+                        )}
+
+                        {outlookAccount && (
+                            <div className="settings-detail-item">
+                                <div className="service-icon outlook" style={{ width: 32, height: 32 }}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                        <path d="M12 2L2 7v10l10 5 10-5V7L12 2z"/>
+                                    </svg>
+                                </div>
+                                <div className="settings-detail-item-content">
+                                    <div className="settings-detail-item-title">Sync Outlook Calendar</div>
+                                    <div className="settings-detail-item-value">Pull latest events from Outlook</div>
+                                </div>
+                                <Button
+                                    icon={<SyncOutlined spin={syncing} />}
+                                    onClick={() => handleSyncNow('outlook')}
+                                    loading={syncing}
+                                    size="small"
+                                >
+                                    Sync
+                                </Button>
+                            </div>
+                        )}
+
+                        <div className="settings-detail-item">
+                            <div className="settings-detail-item-content">
+                                <div className="settings-detail-item-title">Auto-sync</div>
+                                <div className="settings-detail-item-value">Automatically sync every 15 minutes</div>
+                            </div>
+                            <div className="toggle-switch active" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Disconnect Confirmation Modal */}
+                <Modal
+                    title="Disconnect Calendar"
+                    open={disconnectModalVisible}
+                    onOk={handleDisconnectConfirm}
+                    onCancel={handleDisconnectCancel}
+                    okText="Disconnect"
+                    okButtonProps={{ danger: true, loading: disconnecting }}
+                    cancelText="Cancel"
+                >
+                    <p>Are you sure you want to disconnect your {disconnectProvider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}?</p>
+                    <p style={{ color: '#64748b', fontSize: 13 }}>
+                        Events that were synced from this calendar will be removed from Family Hub.
+                        Events you created in Family Hub will not be affected.
+                    </p>
+                </Modal>
+            </div>
+        );
+    };
 
     const renderProfileContent = () => (
         <div className="settings-detail-content">
