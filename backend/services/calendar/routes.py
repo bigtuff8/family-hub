@@ -761,26 +761,49 @@ async def outlook_authorize(
 
 @router.get("/auth/outlook/callback")
 async def outlook_callback(
-    code: str,
-    state: str,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """Handle OAuth2 callback from Microsoft."""
+    import os
+    base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
+    frontend_url = base_url.replace(":8000", "").replace(":3000", "")
+
+    # Check for OAuth error from Microsoft
+    if error:
+        print(f"❌ Microsoft OAuth error: {error} - {error_description}")
+        error_msg = error_description or error
+        return RedirectResponse(
+            url=f"{frontend_url}/settings?status=error&provider=outlook&message={error_msg}",
+            status_code=303
+        )
+
+    # Check required params
+    if not code or not state:
+        print(f"❌ Missing code or state in Outlook callback")
+        return RedirectResponse(
+            url=f"{frontend_url}/settings?status=error&provider=outlook&message=Missing+authorization+code",
+            status_code=303
+        )
+
     try:
         client = OutlookCalendarClient(db)
         link = await client.handle_callback(code, state)
 
         # Redirect back to frontend settings page with success status
-        import os
-        base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
-        frontend_url = base_url.replace(":8000", "").replace(":3000", "")
         return RedirectResponse(
             url=f"{frontend_url}/settings?status=success&provider=outlook",
             status_code=303
         )
     except Exception as e:
         print(f"❌ Error in Outlook OAuth callback: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error in OAuth callback: {str(e)}")
+        return RedirectResponse(
+            url=f"{frontend_url}/settings?status=error&provider=outlook&message=Token+exchange+failed",
+            status_code=303
+        )
 
 
 @router.get("/sync/outlook")
