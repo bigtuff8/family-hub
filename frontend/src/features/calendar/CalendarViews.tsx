@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   TeamOutlined,
   ShoppingCartOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
@@ -67,6 +68,7 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
     { type: 'divider' as const },
     { key: 'shopping', icon: <ShoppingCartOutlined />, label: 'Shopping List', onClick: () => navigate('/shopping') },
     { key: 'contacts', icon: <TeamOutlined />, label: 'Contacts', onClick: () => navigate('/contacts') },
+    { key: 'settings', icon: <SettingOutlined />, label: 'Settings', onClick: () => navigate('/settings') },
     { type: 'divider' as const },
     { key: 'logout', icon: <LogoutOutlined />, label: 'Log out', danger: true, onClick: logout },
   ];
