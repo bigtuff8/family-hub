@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
-from shared.models import CalendarEvent, User, EventAttendee, Contact
+from shared.models import CalendarEvent, User, EventAttendee, Contact, UserExternalCalendar
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
@@ -97,9 +97,12 @@ async def list_calendar_events(
                 "end_time": event.end_time.isoformat() if event.end_time else None,
                 "all_day": event.all_day,
                 "recurrence_rule": event.recurrence_rule,
+                "recurrence_rule": event.recurrence_rule,
                 "color": event.color,
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+                "external_event_id": event.external_event_id,
+                "is_family_hub_event": event.is_family_hub_event,
                 "user": None,
                 "attendees": serialize_attendees(event.attendees) if event.attendees else []
             }
@@ -181,9 +184,12 @@ async def get_events_by_range(
                 "end_time": event.end_time.isoformat() if event.end_time else None,
                 "all_day": event.all_day,
                 "recurrence_rule": event.recurrence_rule,
+                "recurrence_rule": event.recurrence_rule,
                 "color": event.color,
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+                "external_event_id": event.external_event_id,
+                "is_family_hub_event": event.is_family_hub_event,
                 "user": None,
                 "attendees": serialize_attendees(event.attendees) if event.attendees else []
             }
@@ -248,6 +254,8 @@ async def get_calendar_event(
             "color": event.color,
             "created_at": event.created_at.isoformat() if event.created_at else None,
             "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+            "external_event_id": event.external_event_id,
+            "is_family_hub_event": event.is_family_hub_event,
             "user": None,
             "attendees": serialize_attendees(event.attendees) if event.attendees else []
         }
@@ -337,6 +345,8 @@ async def create_calendar_event(
             "color": new_event.color,
             "created_at": new_event.created_at.isoformat() if new_event.created_at else None,
             "updated_at": new_event.updated_at.isoformat() if new_event.updated_at else None,
+            "external_event_id": new_event.external_event_id,
+            "is_family_hub_event": new_event.is_family_hub_event,
             "user": None
         }
 
@@ -359,6 +369,37 @@ async def create_calendar_event(
             event_dict["attendees"] = serialize_attendees(new_event.attendees) if new_event.attendees else []
         else:
             event_dict["attendees"] = []
+
+        # ==========================================
+        # GOOGLE SYNC HOOK (Create)
+        # ==========================================
+        if event_data.get("sync_to_google") and new_event.user_id:
+            try:
+                client = GoogleCalendarClient(db)
+                # Prepare data for Google (ensure dates are strings)
+                google_data = {
+                     'title': new_event.title,
+                     'description': new_event.description,
+                     'location': new_event.location,
+                     'start_time': new_event.start_time.isoformat(),
+                     'end_time': new_event.end_time.isoformat() if new_event.end_time else None,
+                     'all_day': new_event.all_day,
+                     'recurrence_rule': new_event.recurrence_rule
+                }
+                external_id = await client.create_google_event(str(new_event.user_id), google_data)
+                
+                if external_id:
+                    new_event.external_event_id = external_id
+                    new_event.external_calendar_id = 'primary'
+                    new_event.is_family_hub_event = True # Explicitly mark as local origin
+                    await db.commit()
+                    
+                    # Update response to include external ID
+                    event_dict["external_event_id"] = external_id
+                    event_dict["external_calendar_id"] = "primary"
+            except Exception as e:
+                # Log but treat as non-blocking for the user
+                print(f"⚠️ Failed to sync new event to Google: {e}")
 
         return event_dict
 
@@ -454,6 +495,8 @@ async def update_calendar_event(
             "color": event.color,
             "created_at": event.created_at.isoformat() if event.created_at else None,
             "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+            "external_event_id": event.external_event_id,
+            "is_family_hub_event": event.is_family_hub_event,
             "user": None
         }
 
@@ -473,6 +516,41 @@ async def update_calendar_event(
 
         # Add attendees to response
         event_dict["attendees"] = serialize_attendees(event.attendees) if event.attendees else []
+
+        event_dict["attendees"] = serialize_attendees(event.attendees) if event.attendees else []
+
+        # ==========================================
+        # GOOGLE SYNC HOOK (Update)
+        # ==========================================
+        # Sync if it's already linked OR if user explicitly asks to start syncing
+        if (event.external_event_id or event_data.get("sync_to_google")) and event.user_id:
+            try:
+                client = GoogleCalendarClient(db)
+                google_data = {
+                     'title': event.title,
+                     'description': event.description,
+                     'location': event.location,
+                     'start_time': event.start_time.isoformat(),
+                     'end_time': event.end_time.isoformat() if event.end_time else None,
+                     'all_day': event.all_day,
+                     'recurrence_rule': event.recurrence_rule
+                }
+                
+                if event.external_event_id:
+                    # Update existing
+                    await client.update_google_event(str(event.user_id), event.external_event_id, google_data)
+                elif event_data.get("sync_to_google"):
+                    # Create new link (Backfill)
+                    external_id = await client.create_google_event(str(event.user_id), google_data)
+                    if external_id:
+                        event.external_event_id = external_id
+                        event.external_calendar_id = 'primary'
+                        event.is_family_hub_event = True
+                        await db.commit()
+                        event_dict["external_event_id"] = external_id # Update response
+                        
+            except Exception as e:
+                print(f"⚠️ Failed to sync update to Google: {e}")
 
         return event_dict
 
@@ -504,6 +582,17 @@ async def delete_calendar_event(
             raise HTTPException(status_code=404, detail="Event not found")
 
         await db.delete(event)
+        
+        # ==========================================
+        # GOOGLE SYNC HOOK (Delete)
+        # ==========================================
+        if event.external_event_id and event.user_id:
+            try:
+                client = GoogleCalendarClient(db)
+                await client.delete_google_event(str(event.user_id), event.external_event_id)
+            except Exception as e:
+                print(f"⚠️ Failed to delete event from Google: {e}")
+
         await db.commit()
 
         return None
@@ -619,13 +708,15 @@ async def google_callback(
         client = GoogleCalendarClient(db)
         link = await client.handle_callback(code, state)
         
-        # Return simple success page (frontend can close this window)
-        return {
-            "status": "success", 
-            "message": "Google Calendar connected successfully",
-            "provider": "google",
-            "account": link.calendar_name
-        }
+        # Redirect back to frontend settings page with success status
+        import os
+        base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
+        # Remove port if present (Caddy serves frontend on same host without port)
+        frontend_url = base_url.replace(":8000", "").replace(":3000", "")
+        return RedirectResponse(
+            url=f"{frontend_url}/settings?status=success&provider=google",
+            status_code=303
+        )
     except Exception as e:
         print(f"❌ Error in OAuth callback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error in OAuth callback: {str(e)}")
@@ -645,4 +736,33 @@ async def trigger_google_sync(
         print(f"❌ Error syncing events: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error syncing events: {str(e)}")
 
+
+@router.get("/connected-accounts")
+async def get_connected_accounts(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get list of connected external calendars for a user."""
+    try:
+        stmt = select(UserExternalCalendar).where(
+            UserExternalCalendar.user_id == user_id,
+            UserExternalCalendar.is_active == True
+        )
+        result = await db.execute(stmt)
+        calendars = result.scalars().all()
+        
+        return [
+            {
+                "id": str(cal.id),
+                "provider": cal.provider,
+                "email_address": cal.calendar_name,  # Using calendar_name as display
+                "display_name": f"{cal.provider.title()} Calendar",
+                "is_default": True,  # For now, assume connected calendar is default
+                "receive_invites": True
+            }
+            for cal in calendars
+        ]
+    except Exception as e:
+        print(f"❌ Error fetching connected accounts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching connected accounts: {str(e)}")
 
