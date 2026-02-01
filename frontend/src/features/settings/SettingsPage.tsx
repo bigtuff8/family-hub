@@ -100,6 +100,15 @@ export const SettingsPage = () => {
         window.location.href = authUrl;
     };
 
+    const handleConnectOutlook = () => {
+        if (!user) {
+            message.error('You must be logged in to connect an account');
+            return;
+        }
+        const authUrl = `${import.meta.env.VITE_API_URL}/api/v1/calendar/auth/outlook/authorize?user_id=${user.id}&tenant_id=${user.tenant_id}`;
+        window.location.href = authUrl;
+    };
+
     const handleSyncNow = async () => {
         if (!user) return;
         setSyncing(true);
@@ -259,9 +268,19 @@ export const SettingsPage = () => {
                     </div>
                     <div className="settings-detail-item-content">
                         <div className="settings-detail-item-title">Microsoft Outlook</div>
-                        <div className="settings-detail-item-value">Coming soon</div>
+                        <div className="settings-detail-item-value">
+                            {accounts.find(a => a.provider === 'outlook')
+                                ? accounts.find(a => a.provider === 'outlook')?.calendar_name || 'Connected'
+                                : 'Sync your Outlook calendar'}
+                        </div>
                     </div>
-                    <Button disabled size="small">Connect</Button>
+                    {accounts.find(a => a.provider === 'outlook') ? (
+                        <span className="status-badge connected">Connected</span>
+                    ) : (
+                        <Button type="primary" size="small" onClick={handleConnectOutlook}>
+                            Connect
+                        </Button>
+                    )}
                 </div>
             </div>
 
