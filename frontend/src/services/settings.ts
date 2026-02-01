@@ -22,3 +22,8 @@ export const syncGoogleCalendar = async (userId: string) => {
     const response = await api.get(`/api/v1/calendar/sync/google?user_id=${userId}`);
     return response.data;
 };
+
+export const syncOutlookCalendar = async (userId: string) => {
+    const response = await api.get(`/api/v1/calendar/sync/outlook?user_id=${userId}`);
+    return response.data;
+};

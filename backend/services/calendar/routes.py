@@ -737,6 +737,67 @@ async def trigger_google_sync(
         raise HTTPException(status_code=500, detail=f"Error syncing events: {str(e)}")
 
 
+# ==========================================
+# OUTLOOK CALENDAR SYNC (PHASE 2.2)
+# ==========================================
+
+from services.calendar.outlook_client import OutlookCalendarClient
+
+@router.get("/auth/outlook/authorize")
+async def outlook_authorize(
+    user_id: UUID,
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Start OAuth2 flow for Outlook Calendar."""
+    try:
+        client = OutlookCalendarClient(db)
+        url = client.get_auth_url(str(user_id), str(tenant_id))
+        return RedirectResponse(url)
+    except Exception as e:
+        print(f"❌ Error generating Outlook auth URL: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating auth URL: {str(e)}")
+
+
+@router.get("/auth/outlook/callback")
+async def outlook_callback(
+    code: str,
+    state: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Handle OAuth2 callback from Microsoft."""
+    try:
+        client = OutlookCalendarClient(db)
+        link = await client.handle_callback(code, state)
+
+        # Redirect back to frontend settings page with success status
+        import os
+        base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
+        frontend_url = base_url.replace(":8000", "").replace(":3000", "")
+        return RedirectResponse(
+            url=f"{frontend_url}/settings?status=success&provider=outlook",
+            status_code=303
+        )
+    except Exception as e:
+        print(f"❌ Error in Outlook OAuth callback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error in OAuth callback: {str(e)}")
+
+
+@router.get("/sync/outlook")
+async def trigger_outlook_sync(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually trigger an Outlook Calendar sync for a user."""
+    try:
+        client = OutlookCalendarClient(db)
+        count = await client.sync_events(str(user_id))
+        return {"status": "success", "synced_events": count}
+    except Exception as e:
+        print(f"❌ Error syncing Outlook events: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error syncing events: {str(e)}")
+
+
 @router.get("/connected-accounts")
 async def get_connected_accounts(
     user_id: UUID,
