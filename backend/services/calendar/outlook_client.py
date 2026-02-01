@@ -203,8 +203,9 @@ class OutlookCalendarClient:
         # Fetch events from Microsoft Graph
         # Use calendarView for expanded recurring events
         now = datetime.now(timezone.utc)
-        start_time = now.isoformat() + "Z"
-        end_time = (now + timedelta(days=365)).isoformat() + "Z"  # 1 year ahead
+        # Microsoft Graph expects ISO 8601 format without microseconds, with Z suffix
+        start_time = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_time = (now + timedelta(days=365)).strftime('%Y-%m-%dT%H:%M:%SZ')  # 1 year ahead
 
         headers = {"Authorization": f"Bearer {token}"}
         params = {
