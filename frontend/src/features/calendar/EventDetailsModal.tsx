@@ -9,6 +9,9 @@ import {
   UserOutlined,
   CalendarOutlined,
   SyncOutlined,
+  GoogleOutlined,
+  CloudOutlined,
+  HomeOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -87,6 +90,17 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     return null;
   };
 
+  // Get calendar source info
+  const getCalendarSource = (): { name: string; color: string; icon: React.ReactNode } => {
+    if (event.external_calendar_id === 'primary') {
+      return { name: 'Google Calendar', color: '#DB4437', icon: <GoogleOutlined /> };
+    }
+    if (event.external_calendar_id === 'outlook_primary') {
+      return { name: 'Outlook', color: '#0078D4', icon: <CloudOutlined /> };
+    }
+    return { name: 'Family Hub', color: '#2dd4bf', icon: <HomeOutlined /> };
+  };
+
   // Handle delete
   const handleDelete = async () => {
     try {
@@ -116,6 +130,7 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
   const eventColor = getEventColor();
   const familyMemberName = getFamilyMemberName();
+  const calendarSource = getCalendarSource();
 
   return (
     <>
@@ -171,6 +186,19 @@ const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Calendar Source */}
+            <div className="detail-item">
+              <div className="detail-icon" style={{ color: calendarSource.color }}>
+                {calendarSource.icon}
+              </div>
+              <div className="detail-content">
+                <div className="detail-label">Calendar</div>
+                <div className="detail-value">
+                  <Tag color={calendarSource.color}>{calendarSource.name}</Tag>
+                </div>
+              </div>
+            </div>
 
             {/* Location */}
             {event.location && (
