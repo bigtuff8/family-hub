@@ -97,10 +97,10 @@ async def list_calendar_events(
                 "end_time": event.end_time.isoformat() if event.end_time else None,
                 "all_day": event.all_day,
                 "recurrence_rule": event.recurrence_rule,
-                "recurrence_rule": event.recurrence_rule,
                 "color": event.color,
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+                "external_calendar_id": event.external_calendar_id,
                 "external_event_id": event.external_event_id,
                 "is_family_hub_event": event.is_family_hub_event,
                 "user": None,
@@ -184,10 +184,10 @@ async def get_events_by_range(
                 "end_time": event.end_time.isoformat() if event.end_time else None,
                 "all_day": event.all_day,
                 "recurrence_rule": event.recurrence_rule,
-                "recurrence_rule": event.recurrence_rule,
                 "color": event.color,
                 "created_at": event.created_at.isoformat() if event.created_at else None,
                 "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+                "external_calendar_id": event.external_calendar_id,
                 "external_event_id": event.external_event_id,
                 "is_family_hub_event": event.is_family_hub_event,
                 "user": None,
@@ -254,6 +254,7 @@ async def get_calendar_event(
             "color": event.color,
             "created_at": event.created_at.isoformat() if event.created_at else None,
             "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+            "external_calendar_id": event.external_calendar_id,
             "external_event_id": event.external_event_id,
             "is_family_hub_event": event.is_family_hub_event,
             "user": None,
@@ -523,9 +524,11 @@ async def update_calendar_event(
             "color": event.color,
             "created_at": event.created_at.isoformat() if event.created_at else None,
             "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+            "external_calendar_id": event.external_calendar_id,
             "external_event_id": event.external_event_id,
             "is_family_hub_event": event.is_family_hub_event,
-            "user": None
+            "user": None,
+            "attendees": serialize_attendees(event.attendees) if event.attendees else []
         }
 
         # Fetch user if user_id exists
@@ -540,10 +543,6 @@ async def update_calendar_event(
                     "name": user.name,
                     "avatar_url": user.avatar_url
                 }
-
-
-        # Add attendees to response
-        event_dict["attendees"] = serialize_attendees(event.attendees) if event.attendees else []
 
         event_dict["attendees"] = serialize_attendees(event.attendees) if event.attendees else []
 
