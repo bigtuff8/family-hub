@@ -19,8 +19,8 @@ MS_AUTH_ENDPOINT = "https://login.microsoftonline.com/common/oauth2/v2.0/authori
 MS_TOKEN_ENDPOINT = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 MS_GRAPH_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
-# Scopes for calendar access
-SCOPES = ["offline_access", "Calendars.Read", "User.Read"]
+# Scopes for calendar access (ReadWrite for 2-way sync)
+SCOPES = ["offline_access", "Calendars.ReadWrite", "User.Read"]
 
 
 class OutlookCalendarClient:
@@ -309,3 +309,189 @@ class OutlookCalendarClient:
                 color=calendar_link.calendar_color or '#0078D4'
             )
             self.db.add(new_event)
+
+    async def create_outlook_event(self, user_id: str, event_data: dict) -> str | None:
+        """
+        Create an event on Outlook Calendar via Microsoft Graph API.
+        Returns the Outlook Event ID.
+        """
+        token = await self._get_valid_token(user_id)
+        if not token:
+            print(f"No valid Outlook token for user {user_id}")
+            return None
+
+        # Build Microsoft Graph event resource
+        outlook_event = {
+            'subject': event_data['title'],
+            'body': {
+                'contentType': 'text',
+                'content': event_data.get('description', '')
+            },
+            'location': {
+                'displayName': event_data.get('location', '')
+            }
+        }
+
+        # Handle dates - Microsoft Graph expects ISO 8601 with timezone
+        if event_data.get('all_day'):
+            # All day events use date only
+            start_date = event_data['start_time'][:10]  # YYYY-MM-DD
+            end_date = event_data['end_time'][:10] if event_data.get('end_time') else start_date
+            outlook_event['isAllDay'] = True
+            outlook_event['start'] = {
+                'dateTime': f"{start_date}T00:00:00",
+                'timeZone': 'Europe/London'
+            }
+            outlook_event['end'] = {
+                'dateTime': f"{end_date}T00:00:00",
+                'timeZone': 'Europe/London'
+            }
+        else:
+            # Timed events - ensure proper format
+            start_time = event_data['start_time']
+            end_time = event_data.get('end_time') or start_time
+
+            # Remove Z suffix if present, Graph API uses timeZone field
+            start_time = start_time.replace('Z', '').replace('+00:00', '')
+            end_time = end_time.replace('Z', '').replace('+00:00', '')
+
+            outlook_event['start'] = {
+                'dateTime': start_time,
+                'timeZone': 'Europe/London'
+            }
+            outlook_event['end'] = {
+                'dateTime': end_time,
+                'timeZone': 'Europe/London'
+            }
+
+        # Handle recurrence if provided
+        if event_data.get('recurrence_rule'):
+            # Convert RRULE to Microsoft Graph recurrence pattern
+            # This is a simplified conversion - full RRULE parsing would be more complex
+            rrule = event_data['recurrence_rule']
+            if 'FREQ=DAILY' in rrule:
+                outlook_event['recurrence'] = {
+                    'pattern': {'type': 'daily', 'interval': 1},
+                    'range': {'type': 'noEnd'}
+                }
+            elif 'FREQ=WEEKLY' in rrule:
+                outlook_event['recurrence'] = {
+                    'pattern': {'type': 'weekly', 'interval': 1, 'daysOfWeek': ['monday']},
+                    'range': {'type': 'noEnd'}
+                }
+            elif 'FREQ=MONTHLY' in rrule:
+                outlook_event['recurrence'] = {
+                    'pattern': {'type': 'absoluteMonthly', 'interval': 1, 'dayOfMonth': 1},
+                    'range': {'type': 'noEnd'}
+                }
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{MS_GRAPH_ENDPOINT}/me/events",
+                    headers=headers,
+                    json=outlook_event
+                )
+
+                if response.status_code not in [200, 201]:
+                    print(f"Failed to create Outlook event: {response.status_code} - {response.text}")
+                    return None
+
+                created_event = response.json()
+                return created_event.get('id')
+
+        except Exception as e:
+            print(f"Error creating Outlook event: {e}")
+            return None
+
+    async def update_outlook_event(self, user_id: str, external_event_id: str, event_data: dict):
+        """Update an existing Outlook Calendar event via Microsoft Graph API."""
+        token = await self._get_valid_token(user_id)
+        if not token:
+            print(f"No valid Outlook token for user {user_id}")
+            return
+
+        # Build update payload (same structure as create)
+        outlook_event = {
+            'subject': event_data['title'],
+            'body': {
+                'contentType': 'text',
+                'content': event_data.get('description', '')
+            },
+            'location': {
+                'displayName': event_data.get('location', '')
+            }
+        }
+
+        # Handle dates
+        if event_data.get('all_day'):
+            start_date = event_data['start_time'][:10]
+            end_date = event_data['end_time'][:10] if event_data.get('end_time') else start_date
+            outlook_event['isAllDay'] = True
+            outlook_event['start'] = {
+                'dateTime': f"{start_date}T00:00:00",
+                'timeZone': 'Europe/London'
+            }
+            outlook_event['end'] = {
+                'dateTime': f"{end_date}T00:00:00",
+                'timeZone': 'Europe/London'
+            }
+        else:
+            start_time = event_data['start_time'].replace('Z', '').replace('+00:00', '')
+            end_time = (event_data.get('end_time') or event_data['start_time']).replace('Z', '').replace('+00:00', '')
+
+            outlook_event['start'] = {
+                'dateTime': start_time,
+                'timeZone': 'Europe/London'
+            }
+            outlook_event['end'] = {
+                'dateTime': end_time,
+                'timeZone': 'Europe/London'
+            }
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(
+                    f"{MS_GRAPH_ENDPOINT}/me/events/{external_event_id}",
+                    headers=headers,
+                    json=outlook_event
+                )
+
+                if response.status_code not in [200, 204]:
+                    print(f"Failed to update Outlook event: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            print(f"Error updating Outlook event: {e}")
+
+    async def delete_outlook_event(self, user_id: str, external_event_id: str):
+        """Delete an event from Outlook Calendar via Microsoft Graph API."""
+        token = await self._get_valid_token(user_id)
+        if not token:
+            print(f"No valid Outlook token for user {user_id}")
+            return
+
+        try:
+            headers = {"Authorization": f"Bearer {token}"}
+
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    f"{MS_GRAPH_ENDPOINT}/me/events/{external_event_id}",
+                    headers=headers
+                )
+
+                # 204 No Content = success, 404 = already deleted (fine)
+                if response.status_code not in [204, 404, 410]:
+                    print(f"Failed to delete Outlook event: {response.status_code} - {response.text}")
+
+        except Exception as e:
+            print(f"Error deleting Outlook event: {e}")

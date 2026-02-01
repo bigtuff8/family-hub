@@ -16,7 +16,7 @@ import {
   AutoComplete,
   Tag,
 } from 'antd';
-import { DeleteOutlined, SaveOutlined, CloseOutlined, EnvironmentOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SaveOutlined, CloseOutlined, EnvironmentOutlined, TeamOutlined, UserAddOutlined, GoogleOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -83,11 +83,11 @@ const getNext30MinIncrement = (date?: Dayjs) => {
   const base = date || dayjs();
   const minutes = base.minute();
   const roundedMinutes = Math.ceil(minutes / 30) * 30;
-  
+
   if (roundedMinutes === 60) {
     return base.add(1, 'hour').minute(0).second(0);
   }
-  
+
   return base.minute(roundedMinutes).second(0);
 };
 
@@ -132,26 +132,27 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
   const [recurrenceEndType, setRecurrenceEndType] = useState<string>('never');
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<Dayjs | null>(null);
   const [recurrenceCount, setRecurrenceCount] = useState<number>(10);
+  const [syncToGoogle, setSyncToGoogle] = useState(true);
 
   // Helper function to update end date/time based on start date/time
   const updateEndDateTime = (newStartDate?: Dayjs | null, newStartTime?: Dayjs | null) => {
     const startDate = newStartDate ?? form.getFieldValue('startDate');
     const startTime = newStartTime ?? form.getFieldValue('startTime');
-    
+
     if (startDate && startTime) {
       // Combine start date with start time
       const newStartDateTime = startDate
         .hour(startTime.hour())
         .minute(startTime.minute())
         .second(0);
-      
+
       // Calculate end time (+30 minutes)
       const newEndDateTime = newStartDateTime.add(30, 'minutes');
-      
+
       // Update both end date and end time
-      form.setFieldsValue({ 
+      form.setFieldsValue({
         endDate: newEndDateTime,
-        endTime: newEndDateTime 
+        endTime: newEndDateTime
       });
     } else if (startDate && !startTime) {
       // Date-only change (all-day event or time not yet set) - sync end date to start date
@@ -223,7 +224,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       const email = guestInputValue.trim();
-      
+
       // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (email && emailRegex.test(email)) {
@@ -361,7 +362,7 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
 
         setAllDay(event.all_day || false);
         setSelectedLead(event.user_id || undefined);
-        
+
         // Load attendees from event data
         if (event.attendees && event.attendees.length > 0) {
           const loadedAttendees: EventAttendeeCreate[] = event.attendees.map(a => ({
@@ -388,6 +389,9 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
           location: event.location || '',
           color: event.color || '#1890ff',
         });
+
+        // If already synced, show as synced (visual only, can't unsync easily in this UI yet)
+        setSyncToGoogle(!!event.external_event_id);
       } else {
         // Create mode - set defaults with next 30-min increment and 30-min duration
         const start = getNext30MinIncrement(defaultDate);
@@ -418,7 +422,10 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         setRecurrenceType('none');
         setRecurrenceEndType('never');
         setRecurrenceEndDate(null);
+        setRecurrenceEndType('never');
+        setRecurrenceEndDate(null);
         setRecurrenceCount(10);
+        setSyncToGoogle(true); // Default to sync on create
       }
     }
   }, [visible, mode, event, defaultDate, form]);
@@ -435,13 +442,13 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
 
   const handleEventLeadChange = (leadId: string) => {
     setSelectedLead(leadId);
-    
+
     // Set color to lead's color
     const leader = FAMILY_MEMBERS.find(m => m.id === leadId);
     if (leader) {
       form.setFieldsValue({ color: leader.color });
     }
-    
+
     // Remove lead from attendees if selected
     const currentAttendees = form.getFieldValue('attendees') || [];
     if (currentAttendees.includes(leadId)) {
@@ -529,7 +536,9 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
         location: values.location || null,
         color: typeof values.color === 'string' ? values.color : values.color.toHexString(),
         recurrence_rule: recurrenceRule,
+        recurrence_rule: recurrenceRule,
         attendees: selectedAttendees,
+        sync_to_google: syncToGoogle,
       };
 
       if (mode === 'create') {
@@ -661,8 +670,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
             rules={[{ required: true, message: 'Required' }]}
             style={{ flex: 1 }}
           >
-            <DatePicker 
-              style={{ width: '100%' }} 
+            <DatePicker
+              style={{ width: '100%' }}
               format="DD/MM/YYYY"
               onChange={(date) => updateEndDateTime(date, null)}
             />
@@ -675,9 +684,9 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
               rules={[{ required: !allDay, message: 'Required' }]}
               style={{ flex: 1 }}
             >
-              <TimePicker 
-                style={{ width: '100%' }} 
-                format="HH:mm" 
+              <TimePicker
+                style={{ width: '100%' }}
+                format="HH:mm"
                 minuteStep={15}
                 onChange={(time) => updateEndDateTime(null, time)}
               />
@@ -813,8 +822,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
           </Select>
         </Form.Item>
 
-        <Form.Item 
-          label="Family Attendees" 
+        <Form.Item
+          label="Family Attendees"
           name="attendees"
           extra={selectedLead ? "Event lead is automatically excluded" : undefined}
         >
@@ -924,8 +933,8 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
 
         <Divider>Details</Divider>
 
-        <Form.Item 
-          label="Location" 
+        <Form.Item
+          label="Location"
           name="location"
           extra="Search by address or postcode"
         >
@@ -956,6 +965,21 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
               },
             ]}
           />
+        </Form.Item>
+
+        <Form.Item>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f8fafc', borderRadius: 8 }}>
+            <Space>
+              <GoogleOutlined style={{ color: '#EA4335' }} />
+              <span>Sync to Google Calendar</span>
+            </Space>
+
+            {mode === 'edit' && event?.external_event_id ? (
+              <Tag color="success">Synced</Tag>
+            ) : (
+              <Switch checked={syncToGoogle} onChange={setSyncToGoogle} />
+            )}
+          </div>
         </Form.Item>
       </Form>
     </Modal>

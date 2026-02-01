@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Space, Tabs, FloatButton, DatePicker, Dropdown } from 'antd';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Button, Space, Tabs, DatePicker, Dropdown } from 'antd';
 import {
   LeftOutlined,
   RightOutlined,
   CalendarOutlined,
   PlusOutlined,
-  HomeOutlined,
   AppstoreOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -27,6 +26,21 @@ import EventDetailsModal from './EventDetailsModal';
 import CalendarEventForm from './CalendarEventForm';
 import './CalendarViews.css';
 
+// Family members configuration
+const FAMILY_MEMBERS = [
+  { id: '10000000-0000-0000-0000-000000000001', name: 'James', color: '#e30613' },
+  { id: '10000000-0000-0000-0000-000000000002', name: 'Nicola', color: '#fb7185' },
+  { id: '10000000-0000-0000-0000-000000000003', name: 'Tommy', color: '#00B140' },
+  { id: '10000000-0000-0000-0000-000000000004', name: 'Harry', color: '#1D428A' },
+];
+
+// Calendar source configuration
+const CALENDAR_SOURCES = [
+  { id: 'primary', name: 'Google', color: '#DB4437' },
+  { id: 'outlook_primary', name: 'Outlook', color: '#0078D4' },
+  { id: 'familyhub', name: 'Family Hub', color: '#2dd4bf' },
+];
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.setDefault('Europe/London');
@@ -45,11 +59,12 @@ type ViewMode = 'month' | 'week' | 'day';
 const CalendarViews: React.FC<CalendarViewsProps> = ({
   events,
   onRefresh,
-  onNavigateToDashboard,
+  onNavigateToDashboard: _onNavigateToDashboard,
   showViewToggle = false,
   currentViewType = 'calendar',
   onViewTypeChange
 }) => {
+  void _onNavigateToDashboard; // Reserved for future use
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [viewMode, setViewMode] = useState<ViewMode>(window.innerWidth < 768 ? 'week' : 'month');
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
@@ -58,6 +73,101 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createModalDefaultDate, setCreateModalDefaultDate] = useState<Dayjs | undefined>(undefined);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // Filter states - all visible by default
+  const [visibleFamilyMembers, setVisibleFamilyMembers] = useState<Set<string>>(
+    new Set(FAMILY_MEMBERS.map(m => m.id))
+  );
+  const [visibleSources, setVisibleSources] = useState<Set<string>>(
+    new Set(CALENDAR_SOURCES.map(s => s.id))
+  );
+
+  // Determine which calendar sources are actually in use
+  const connectedSources = useMemo(() => {
+    const sourcesInUse = new Set<string>();
+    events.forEach(event => {
+      if (event.external_calendar_id === 'primary') {
+        sourcesInUse.add('primary'); // Google
+      } else if (event.external_calendar_id === 'outlook_primary') {
+        sourcesInUse.add('outlook_primary'); // Outlook
+      } else {
+        sourcesInUse.add('familyhub'); // Family Hub (no external_calendar_id)
+      }
+    });
+    return sourcesInUse;
+  }, [events]);
+
+  // Count events per family member
+  const familyMemberCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    FAMILY_MEMBERS.forEach(m => { counts[m.id] = 0; });
+    events.forEach(event => {
+      if (event.user_id && counts[event.user_id] !== undefined) {
+        counts[event.user_id]++;
+      }
+    });
+    return counts;
+  }, [events]);
+
+  // Count events per source
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, number> = { primary: 0, outlook_primary: 0, familyhub: 0 };
+    events.forEach(event => {
+      if (event.external_calendar_id === 'primary') {
+        counts.primary++;
+      } else if (event.external_calendar_id === 'outlook_primary') {
+        counts.outlook_primary++;
+      } else {
+        counts.familyhub++;
+      }
+    });
+    return counts;
+  }, [events]);
+
+  // Filter events based on selected filters
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      // Check family member filter
+      const memberVisible = !event.user_id || visibleFamilyMembers.has(event.user_id);
+
+      // Check source filter
+      let sourceId = 'familyhub';
+      if (event.external_calendar_id === 'primary') {
+        sourceId = 'primary';
+      } else if (event.external_calendar_id === 'outlook_primary') {
+        sourceId = 'outlook_primary';
+      }
+      const sourceVisible = visibleSources.has(sourceId);
+
+      return memberVisible && sourceVisible;
+    });
+  }, [events, visibleFamilyMembers, visibleSources]);
+
+  // Toggle family member visibility
+  const toggleFamilyMember = (memberId: string) => {
+    setVisibleFamilyMembers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId);
+      } else {
+        newSet.add(memberId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle source visibility
+  const toggleSource = (sourceId: string) => {
+    setVisibleSources(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sourceId)) {
+        newSet.delete(sourceId);
+      } else {
+        newSet.add(sourceId);
+      }
+      return newSet;
+    });
+  };
 
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -122,10 +232,11 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
     }
   };
 
-  // Navigate to today
-  const handleToday = () => {
+  // Navigate to today (reserved for future Today button)
+  const _handleToday = () => {
     setCurrentDate(dayjs());
   };
+  void _handleToday;
 
   // Handle date picker change
   const handleDatePickerChange = (date: Dayjs | null) => {
@@ -346,11 +457,46 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div className="calendar-filter-bar">
+        <span className="filter-label">Family:</span>
+        {FAMILY_MEMBERS.map(member => (
+          <div
+            key={member.id}
+            className={`filter-chip ${visibleFamilyMembers.has(member.id) ? 'active' : 'inactive'}`}
+            onClick={() => toggleFamilyMember(member.id)}
+          >
+            <span className="filter-chip-dot" style={{ backgroundColor: member.color }}></span>
+            <span>{member.name}</span>
+            <span className="filter-chip-count">{familyMemberCounts[member.id] || 0}</span>
+          </div>
+        ))}
+
+        {/* Only show source filters if there are external calendars connected */}
+        {connectedSources.size > 1 && (
+          <>
+            <span className="filter-divider">|</span>
+            <span className="filter-label">Source:</span>
+            {CALENDAR_SOURCES.filter(source => connectedSources.has(source.id)).map(source => (
+              <div
+                key={source.id}
+                className={`filter-chip ${visibleSources.has(source.id) ? 'active' : 'inactive'}`}
+                onClick={() => toggleSource(source.id)}
+              >
+                <span className="filter-chip-dot" style={{ backgroundColor: source.color }}></span>
+                <span>{source.name}</span>
+                <span className="filter-chip-count">{sourceCounts[source.id] || 0}</span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
       {/* Calendar view content */}
       <div className="calendar-views-content">
         {viewMode === 'month' && (
           <MonthView
-            events={events}
+            events={filteredEvents}
             currentDate={currentDate}
             onEventClick={handleEventClick}
             onDateClick={handleDateClick}
@@ -358,14 +504,14 @@ const CalendarViews: React.FC<CalendarViewsProps> = ({
         )}
         {viewMode === 'week' && (
           <WeekView
-            events={events}
+            events={filteredEvents}
             currentDate={currentDate}
             onEventClick={handleEventClick}
           />
         )}
         {viewMode === 'day' && (
           <DayView
-            events={events}
+            events={filteredEvents}
             currentDate={currentDate}
             onEventClick={handleEventClick}
           />

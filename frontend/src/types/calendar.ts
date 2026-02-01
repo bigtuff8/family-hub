@@ -37,6 +37,7 @@ export interface CalendarEvent {
   recurrence_rule: string | null;  // Changed from recurrenceRule
   external_calendar_id: string | null;  // Changed from externalCalendarId
   external_event_id: string | null;  // Changed from externalEventId
+  is_family_hub_event: boolean;
   color: string | null;
   created_at: string;  // Changed from createdAt
   updated_at: string;  // Changed from updatedAt
@@ -55,6 +56,7 @@ export interface CalendarEventCreate {
   color?: string | null;
   recurrence_rule?: string | null;  // Changed from recurrenceRule
   attendees?: EventAttendeeCreate[];
+  sync_to_google?: boolean;
 }
 
 export interface CalendarEventUpdate {
@@ -67,6 +69,7 @@ export interface CalendarEventUpdate {
   user_id?: string | null;  // Changed from userId
   color?: string | null;
   recurrence_rule?: string | null;  // Changed from recurrenceRule
+  sync_to_google?: boolean;
 }
 
 export interface EventFormValues {

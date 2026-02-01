@@ -17,6 +17,13 @@ const FAMILY_COLORS: { [key: string]: string } = {
   '10000000-0000-0000-0000-000000000004': '#1D428A', // Harry - Leeds blue
 };
 
+// Calendar source colors
+const SOURCE_COLORS: { [key: string]: { color: string; name: string } } = {
+  'primary': { color: '#DB4437', name: 'Google' },
+  'outlook_primary': { color: '#0078D4', name: 'Outlook' },
+  'familyhub': { color: '#2dd4bf', name: 'Family Hub' },
+};
+
 const DayView: React.FC<DayViewProps> = ({ events, currentDate, onEventClick }) => {
   // Time slots from 7am to 10pm
   const hours = Array.from({ length: 15 }, (_, i) => i + 7);
@@ -30,6 +37,17 @@ const DayView: React.FC<DayViewProps> = ({ events, currentDate, onEventClick }) 
       return FAMILY_COLORS[event.user_id];
     }
     return '#2dd4bf'; // Default teal
+  };
+
+  // Get source info for event
+  const getSourceInfo = (event: CalendarEvent): { color: string; name: string } | null => {
+    if (event.external_calendar_id === 'primary') {
+      return SOURCE_COLORS['primary'];
+    }
+    if (event.external_calendar_id === 'outlook_primary') {
+      return SOURCE_COLORS['outlook_primary'];
+    }
+    return SOURCE_COLORS['familyhub'];
   };
 
   // Get events for the current day
@@ -97,22 +115,34 @@ const DayView: React.FC<DayViewProps> = ({ events, currentDate, onEventClick }) 
         <div className="day-view-allday">
           <div className="allday-label">All Day Events</div>
           <div className="allday-events-list">
-            {allDayEvents.map(event => (
-              <div
-                key={event.id}
-                className="day-event allday-event"
-                style={{ borderLeftColor: getEventColor(event) }}
-                onClick={() => onEventClick(event)}
-              >
-                <div className="event-title">{event.title}</div>
-                {event.location && (
-                  <div className="event-location">{event.location}</div>
-                )}
-                {event.description && (
-                  <div className="event-description">{event.description}</div>
-                )}
-              </div>
-            ))}
+            {allDayEvents.map(event => {
+              const sourceInfo = getSourceInfo(event);
+              return (
+                <div
+                  key={event.id}
+                  className="day-event allday-event"
+                  style={{ borderLeftColor: getEventColor(event) }}
+                  onClick={() => onEventClick(event)}
+                >
+                  <div className="event-header">
+                    <div className="event-title">{event.title}</div>
+                    {sourceInfo && (
+                      <span
+                        className="event-source-dot"
+                        style={{ backgroundColor: sourceInfo.color }}
+                        title={sourceInfo.name}
+                      />
+                    )}
+                  </div>
+                  {event.location && (
+                    <div className="event-location">{event.location}</div>
+                  )}
+                  {event.description && (
+                    <div className="event-description">{event.description}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -128,23 +158,35 @@ const DayView: React.FC<DayViewProps> = ({ events, currentDate, onEventClick }) 
               </div>
               <div className="hour-content">
                 {hourEvents.length > 0 ? (
-                  hourEvents.map(event => (
-                    <div
-                      key={event.id}
-                      className="day-event timed-event"
-                      style={{ borderLeftColor: getEventColor(event) }}
-                      onClick={() => onEventClick(event)}
-                    >
-                      <div className="event-time">{formatEventTime(event)}</div>
-                      <div className="event-title">{event.title}</div>
-                      {event.location && (
-                        <div className="event-location">{event.location}</div>
-                      )}
-                      {event.description && (
-                        <div className="event-description">{event.description}</div>
-                      )}
-                    </div>
-                  ))
+                  hourEvents.map(event => {
+                    const sourceInfo = getSourceInfo(event);
+                    return (
+                      <div
+                        key={event.id}
+                        className="day-event timed-event"
+                        style={{ borderLeftColor: getEventColor(event) }}
+                        onClick={() => onEventClick(event)}
+                      >
+                        <div className="event-header">
+                          <div className="event-time">{formatEventTime(event)}</div>
+                          {sourceInfo && (
+                            <span
+                              className="event-source-dot"
+                              style={{ backgroundColor: sourceInfo.color }}
+                              title={sourceInfo.name}
+                            />
+                          )}
+                        </div>
+                        <div className="event-title">{event.title}</div>
+                        {event.location && (
+                          <div className="event-location">{event.location}</div>
+                        )}
+                        {event.description && (
+                          <div className="event-description">{event.description}</div>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="empty-hour"></div>
                 )}

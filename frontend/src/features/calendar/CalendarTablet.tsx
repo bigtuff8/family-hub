@@ -1,5 +1,5 @@
 import { Card, Avatar, Button, Space, Dropdown } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, PlusOutlined, SettingOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -26,6 +26,7 @@ interface CalendarEvent {
   recurrence_rule: string | null;
   external_calendar_id: string | null;
   external_event_id: string | null;
+  is_family_hub_event: boolean;
   color: string | null;
   created_at: string;
   updated_at: string;
@@ -342,9 +343,17 @@ export default function CalendarTablet({
                     minWidth: 70,
                     fontSize: 14,
                     fontWeight: 600,
-                    color: '#1a2332'
+                    color: '#1a2332',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start'
                   }}>
                     {event.all_day ? 'All Day' : formatTime(event.start_time)}
+                    {event.external_event_id && !event.is_family_hub_event && (
+                      <div style={{ marginTop: 4 }} title="Imported from Google Calendar">
+                        <GoogleOutlined style={{ color: '#EA4335' }} />
+                      </div>
+                    )}
                   </div>
 
                   {/* Event Details */}
@@ -446,6 +455,9 @@ export default function CalendarTablet({
                   <ClockCircleOutlined />
                   {parseEventTime(event.start_time).format('ddd, MMM D')}
                   {!event.all_day && ` • ${formatTime(event.start_time)}`}
+                  {event.external_event_id && !event.is_family_hub_event && (
+                    <GoogleOutlined style={{ color: '#EA4335', marginLeft: 6 }} title="Imported from Google Calendar" />
+                  )}
                 </div>
               </div>
             ))}

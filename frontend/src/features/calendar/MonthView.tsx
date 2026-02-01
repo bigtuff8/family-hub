@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Modal, List } from 'antd';
+import { Modal, List } from 'antd';
 import { ClockCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { CalendarEvent } from './Calendar';
@@ -19,6 +19,13 @@ const FAMILY_COLORS: { [key: string]: string } = {
   '10000000-0000-0000-0000-000000000002': '#fb7185', // Nicola - Pink
   '10000000-0000-0000-0000-000000000003': '#00B140', // Tommy - Liverpool green
   '10000000-0000-0000-0000-000000000004': '#1D428A', // Harry - Leeds blue
+};
+
+// Calendar source colors
+const SOURCE_COLORS: { [key: string]: { color: string; name: string } } = {
+  'primary': { color: '#DB4437', name: 'Google' },
+  'outlook_primary': { color: '#0078D4', name: 'Outlook' },
+  'familyhub': { color: '#2dd4bf', name: 'Family Hub' },
 };
 
 const MonthView: React.FC<MonthViewProps> = ({ events, currentDate, onEventClick, onDateClick }) => {
@@ -65,15 +72,27 @@ const MonthView: React.FC<MonthViewProps> = ({ events, currentDate, onEventClick
     return start.format('HH:mm');
   };
 
-  // Get event color
+  // Get event color (family member color)
   const getEventColor = (event: CalendarEvent): string => {
-    if (event.color) {
-      return event.color;
-    }
     if (event.user_id && FAMILY_COLORS[event.user_id]) {
       return FAMILY_COLORS[event.user_id];
     }
+    if (event.color) {
+      return event.color;
+    }
     return '#2dd4bf'; // Default teal
+  };
+
+  // Get source info for event
+  const getSourceInfo = (event: CalendarEvent): { color: string; name: string } | null => {
+    if (event.external_calendar_id === 'primary') {
+      return SOURCE_COLORS['primary'];
+    }
+    if (event.external_calendar_id === 'outlook_primary') {
+      return SOURCE_COLORS['outlook_primary'];
+    }
+    // Family Hub events - only show dot if there are external calendars synced
+    return SOURCE_COLORS['familyhub'];
   };
 
   // Check if day is today
@@ -123,23 +142,35 @@ const MonthView: React.FC<MonthViewProps> = ({ events, currentDate, onEventClick
             >
               <div className="day-number">{day.date()}</div>
               <div className="day-events">
-                {dayEvents.slice(0, 3).map((event) => (
-                  <div
-                    key={event.id}
-                    className="month-event"
-                    style={{ borderLeftColor: getEventColor(event) }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEventClick(event);
-                    }}
-                  >
-                    {isRecurringEvent(event) && (
-                      <SyncOutlined style={{ fontSize: 9, color: '#64748b', marginRight: 2 }} />
-                    )}
-                    <span className="event-time">{formatEventTime(event)}</span>
-                    <span className="event-title">{event.title}</span>
-                  </div>
-                ))}
+                {dayEvents.slice(0, 3).map((event) => {
+                  const sourceInfo = getSourceInfo(event);
+                  return (
+                    <div
+                      key={event.id}
+                      className="month-event"
+                      style={{ borderLeftColor: getEventColor(event) }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEventClick(event);
+                      }}
+                    >
+                      <div className="event-main">
+                        {isRecurringEvent(event) && (
+                          <SyncOutlined style={{ fontSize: 9, color: '#64748b', marginRight: 2 }} />
+                        )}
+                        <span className="event-time">{formatEventTime(event)}</span>
+                        <span className="event-title">{event.title}</span>
+                      </div>
+                      {sourceInfo && (
+                        <span
+                          className="event-source-dot"
+                          style={{ backgroundColor: sourceInfo.color }}
+                          title={sourceInfo.name}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
                 {dayEvents.length > 3 && (
                   <div
                     className="more-events"

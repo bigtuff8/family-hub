@@ -387,19 +387,47 @@ async def create_calendar_event(
                      'recurrence_rule': new_event.recurrence_rule
                 }
                 external_id = await client.create_google_event(str(new_event.user_id), google_data)
-                
+
                 if external_id:
                     new_event.external_event_id = external_id
                     new_event.external_calendar_id = 'primary'
                     new_event.is_family_hub_event = True # Explicitly mark as local origin
                     await db.commit()
-                    
+
                     # Update response to include external ID
                     event_dict["external_event_id"] = external_id
                     event_dict["external_calendar_id"] = "primary"
             except Exception as e:
                 # Log but treat as non-blocking for the user
                 print(f"⚠️ Failed to sync new event to Google: {e}")
+
+        # ==========================================
+        # OUTLOOK SYNC HOOK (Create)
+        # ==========================================
+        if event_data.get("sync_to_outlook") and new_event.user_id:
+            try:
+                outlook_client = OutlookCalendarClient(db)
+                outlook_data = {
+                     'title': new_event.title,
+                     'description': new_event.description,
+                     'location': new_event.location,
+                     'start_time': new_event.start_time.isoformat(),
+                     'end_time': new_event.end_time.isoformat() if new_event.end_time else None,
+                     'all_day': new_event.all_day,
+                     'recurrence_rule': new_event.recurrence_rule
+                }
+                external_id = await outlook_client.create_outlook_event(str(new_event.user_id), outlook_data)
+
+                if external_id:
+                    new_event.external_event_id = external_id
+                    new_event.external_calendar_id = 'outlook_primary'
+                    new_event.is_family_hub_event = True
+                    await db.commit()
+
+                    event_dict["external_event_id"] = external_id
+                    event_dict["external_calendar_id"] = "outlook_primary"
+            except Exception as e:
+                print(f"⚠️ Failed to sync new event to Outlook: {e}")
 
         return event_dict
 
@@ -522,8 +550,8 @@ async def update_calendar_event(
         # ==========================================
         # GOOGLE SYNC HOOK (Update)
         # ==========================================
-        # Sync if it's already linked OR if user explicitly asks to start syncing
-        if (event.external_event_id or event_data.get("sync_to_google")) and event.user_id:
+        # Sync if it's already linked to Google OR if user explicitly asks to start syncing
+        if event.external_calendar_id == 'primary' and event.external_event_id and event.user_id:
             try:
                 client = GoogleCalendarClient(db)
                 google_data = {
@@ -535,22 +563,73 @@ async def update_calendar_event(
                      'all_day': event.all_day,
                      'recurrence_rule': event.recurrence_rule
                 }
-                
-                if event.external_event_id:
-                    # Update existing
-                    await client.update_google_event(str(event.user_id), event.external_event_id, google_data)
-                elif event_data.get("sync_to_google"):
-                    # Create new link (Backfill)
-                    external_id = await client.create_google_event(str(event.user_id), google_data)
-                    if external_id:
-                        event.external_event_id = external_id
-                        event.external_calendar_id = 'primary'
-                        event.is_family_hub_event = True
-                        await db.commit()
-                        event_dict["external_event_id"] = external_id # Update response
-                        
+                await client.update_google_event(str(event.user_id), event.external_event_id, google_data)
             except Exception as e:
                 print(f"⚠️ Failed to sync update to Google: {e}")
+
+        elif event_data.get("sync_to_google") and event.user_id:
+            try:
+                client = GoogleCalendarClient(db)
+                google_data = {
+                     'title': event.title,
+                     'description': event.description,
+                     'location': event.location,
+                     'start_time': event.start_time.isoformat(),
+                     'end_time': event.end_time.isoformat() if event.end_time else None,
+                     'all_day': event.all_day,
+                     'recurrence_rule': event.recurrence_rule
+                }
+                external_id = await client.create_google_event(str(event.user_id), google_data)
+                if external_id:
+                    event.external_event_id = external_id
+                    event.external_calendar_id = 'primary'
+                    event.is_family_hub_event = True
+                    await db.commit()
+                    event_dict["external_event_id"] = external_id
+            except Exception as e:
+                print(f"⚠️ Failed to sync new event to Google: {e}")
+
+        # ==========================================
+        # OUTLOOK SYNC HOOK (Update)
+        # ==========================================
+        # Sync if it's already linked to Outlook
+        if event.external_calendar_id == 'outlook_primary' and event.external_event_id and event.user_id:
+            try:
+                outlook_client = OutlookCalendarClient(db)
+                outlook_data = {
+                     'title': event.title,
+                     'description': event.description,
+                     'location': event.location,
+                     'start_time': event.start_time.isoformat(),
+                     'end_time': event.end_time.isoformat() if event.end_time else None,
+                     'all_day': event.all_day,
+                     'recurrence_rule': event.recurrence_rule
+                }
+                await outlook_client.update_outlook_event(str(event.user_id), event.external_event_id, outlook_data)
+            except Exception as e:
+                print(f"⚠️ Failed to sync update to Outlook: {e}")
+
+        elif event_data.get("sync_to_outlook") and event.user_id:
+            try:
+                outlook_client = OutlookCalendarClient(db)
+                outlook_data = {
+                     'title': event.title,
+                     'description': event.description,
+                     'location': event.location,
+                     'start_time': event.start_time.isoformat(),
+                     'end_time': event.end_time.isoformat() if event.end_time else None,
+                     'all_day': event.all_day,
+                     'recurrence_rule': event.recurrence_rule
+                }
+                external_id = await outlook_client.create_outlook_event(str(event.user_id), outlook_data)
+                if external_id:
+                    event.external_event_id = external_id
+                    event.external_calendar_id = 'outlook_primary'
+                    event.is_family_hub_event = True
+                    await db.commit()
+                    event_dict["external_event_id"] = external_id
+            except Exception as e:
+                print(f"⚠️ Failed to sync new event to Outlook: {e}")
 
         return event_dict
 
@@ -581,18 +660,27 @@ async def delete_calendar_event(
         if not event:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        await db.delete(event)
-        
         # ==========================================
         # GOOGLE SYNC HOOK (Delete)
         # ==========================================
-        if event.external_event_id and event.user_id:
+        if event.external_calendar_id == 'primary' and event.external_event_id and event.user_id:
             try:
                 client = GoogleCalendarClient(db)
                 await client.delete_google_event(str(event.user_id), event.external_event_id)
             except Exception as e:
                 print(f"⚠️ Failed to delete event from Google: {e}")
 
+        # ==========================================
+        # OUTLOOK SYNC HOOK (Delete)
+        # ==========================================
+        if event.external_calendar_id == 'outlook_primary' and event.external_event_id and event.user_id:
+            try:
+                outlook_client = OutlookCalendarClient(db)
+                await outlook_client.delete_outlook_event(str(event.user_id), event.external_event_id)
+            except Exception as e:
+                print(f"⚠️ Failed to delete event from Outlook: {e}")
+
+        await db.delete(event)
         await db.commit()
 
         return None

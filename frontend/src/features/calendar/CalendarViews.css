@@ -137,6 +137,82 @@
   display: none !important;
 }
 
+/* Filter Bar */
+.calendar-filter-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.filter-divider {
+  margin: 0 8px;
+  color: #e2e8f0;
+  font-weight: 300;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-radius: 16px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.filter-chip:hover {
+  border-color: #2dd4bf;
+}
+
+.filter-chip.active {
+  background: #2dd4bf;
+  color: white;
+  border-color: #2dd4bf;
+}
+
+.filter-chip.active .filter-chip-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.filter-chip.inactive {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.filter-chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.filter-chip-count {
+  font-size: 10px;
+  background: #e2e8f0;
+  color: #64748b;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 2px;
+}
+
 .calendar-views-content {
   background: #fef7f0;
   border-radius: 12px;
