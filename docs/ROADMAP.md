@@ -3,7 +3,7 @@
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
 **Start Date:** October 2025
 **Current Phase:** Phase 2 - Integration & Sync
-**Last Updated:** December 28, 2025
+**Last Updated:** February 2, 2026
 
 ---
 
@@ -19,7 +19,10 @@ Phase 2 (Integration)      🔄 IN PROGRESS
   ├── User-Owned Contacts  ✅ COMPLETE (Dec 28)
   ├── Smart Lookup API     ✅ COMPLETE (Dec 28)
   ├── SmartContactSearch   ✅ COMPLETE (Dec 28)
-  └── Calendar Invite Sync 📋 DESIGNED - Next to implement
+  ├── Google Calendar Sync ✅ COMPLETE (OAuth, sync, CRUD hooks)
+  ├── Outlook Calendar Sync ✅ COMPLETE (Feb 1, 2026)
+  ├── Calendar Source Filter ✅ COMPLETE (Feb 1, 2026)
+  └── iCloud Calendar Sync 📋 NEXT
 ```
 
 ### Architecture Decisions (December 27, 2025)
@@ -49,9 +52,9 @@ Major architectural changes were made to the calendar and contacts sync approach
 | Phase 2 User Tests | Comprehensive browser & mobile test suite | `docs/testing/phase2-user-tests.md` |
 | Mobile Quick Test | 15-minute mobile validation checklist | `docs/testing/mobile-quick-test.md` |
 
-### Implementation Progress (December 28, 2025)
+### Implementation Progress
 
-**Completed This Session:**
+**Completed (December 28, 2025):**
 - ✅ Database models for Phase 2 (UserEmailAccount, OrganizerAccount, EventInvite, ParentalControl, etc.)
 - ✅ Contact model updated with owner_user_id, is_published_to_family
 - ✅ Backend Contacts CRUD with user ownership
@@ -62,18 +65,27 @@ Major architectural changes were made to the calendar and contacts sync approach
 - ✅ SmartContactSearch component (typeahead with grouped results)
 - ✅ User tests for browser and mobile
 
+**Completed (January-February 2026):**
+- ✅ Settings page responsive design (sidebar desktop, cards mobile)
+- ✅ Google Calendar OAuth integration (full flow)
+- ✅ Google Calendar sync (one-way import from Google)
+- ✅ Google Calendar two-way sync hooks (create/update/delete push to Google)
+- ✅ Outlook Calendar OAuth integration
+- ✅ Outlook calendar sync (one-way: Outlook → Family Hub)
+- ✅ Scheduled sync via backend scheduler
+- ✅ Calendar source indicator dots on events
+- ✅ Calendar filter bar (show/hide by source)
+- ✅ Event details modal shows calendar source
+- ✅ Settings page: Connect/Disconnect calendars (both Google & Outlook)
+- ✅ Datetime format fixes for Microsoft Graph API
+
 **Next Steps (In Order):**
-1. **Re-initialize Database** - New models require fresh DB:
-   ```bash
-   docker-compose down -v && docker-compose up -d
-   docker-compose exec backend python seed.py
-   ```
-2. **Run User Tests** - Validate Phase 2 contacts implementation (`docs/testing/phase2-user-tests.md`)
-3. Organizer Account Setup (Outlook)
-4. Event creation with invites
-5. Response tracking
-6. Google Contacts sync
-7. User calendar sync (unified view)
+1. iCloud Calendar integration
+2. Organizer Account Setup (for sending invites)
+3. Event creation with invites
+4. Response tracking (Accept/Decline/Tentative)
+5. Google Contacts sync
+6. Contacts UI tabs (My Contacts / Family Contacts)
 
 ---
 
@@ -257,21 +269,28 @@ Phase 1     Phase 1.5    Phase 2       Phase 3      Phase 4      Phase 5
 | REQ-2.032 | Amendments only in app (external = response only) | 📋 Designed |
 | REQ-2.033 | User email accounts table | ✅ Done (DB model) |
 | REQ-2.034 | Default email per user for invites | ✅ Done (DB model) |
-| REQ-2.035 | User connects own calendars (Google/iCloud/Outlook) | 📋 Designed |
-| REQ-2.036 | Unified calendar view (Hub + external events) | 📋 Designed |
-| REQ-2.037 | External events read-only in app | 📋 Designed |
-| REQ-2.038 | Event source badges (Hub/Google/iCloud) | 📋 Designed |
-| REQ-2.039 | FamilyHubEventId extended property for tracking | 📋 Designed |
+| REQ-2.035 | User connects own calendars (Google/iCloud/Outlook) | ✅ Done (Google + Outlook) |
+| REQ-2.036 | Unified calendar view (Hub + external events) | ✅ Done |
+| REQ-2.037 | External events read-only in app | ✅ Done |
+| REQ-2.038 | Event source badges (Hub/Google/iCloud) | ✅ Done |
+| REQ-2.039 | FamilyHubEventId extended property for tracking | ✅ Done (external_calendar_id) |
+| REQ-2.040 | Calendar filter bar (show/hide sources) | ✅ Done |
+| REQ-2.041 | Outlook OAuth integration | ✅ Done |
+| REQ-2.042 | Outlook calendar scheduled sync | ✅ Done |
+| REQ-2.043 | Disconnect calendar from Settings | ✅ Done |
+| REQ-2.044 | Google OAuth integration | ✅ Done |
+| REQ-2.045 | Google calendar sync (one-way import) | ✅ Done |
+| REQ-2.046 | Two-way sync hooks (create/update/delete to Google) | ✅ Done |
 
 ### 2.3 Parental Controls
 
 | ID | Requirement | Status |
 |----|-------------|--------|
-| REQ-2.040 | Parent-child relationship table | ✅ Done (DB model) |
-| REQ-2.041 | Parents can view children's calendars | 📋 Designed |
-| REQ-2.042 | Parents can view children's contacts | 📋 Designed |
-| REQ-2.043 | Parents can respond to invites for minors | 📋 Designed |
-| REQ-2.044 | Parents can manage children's contacts | 📋 Designed |
+| REQ-2.050 | Parent-child relationship table | ✅ Done (DB model) |
+| REQ-2.051 | Parents can view children's calendars | 📋 Designed |
+| REQ-2.052 | Parents can view children's contacts | 📋 Designed |
+| REQ-2.053 | Parents can respond to invites for minors | 📋 Designed |
+| REQ-2.054 | Parents can manage children's contacts | 📋 Designed |
 
 ### 2.4 Shopping Lists ✅ COMPLETE
 
@@ -634,6 +653,9 @@ Phase 2 is complete when:
 | REQ-B.001 | ~~Move project files from OneDrive to local~~ | ✅ Done (Dec 27) |
 | REQ-B.002 | Extended family viewer role (grandparents) | View-only access |
 | REQ-B.003 | Guest/viewer role | Limited interaction |
+| REQ-B.004 | Family Wishlists | Each family member maintains a wishlist; others can view and secretly claim items to avoid duplicates |
+| REQ-B.005 | Gift/Present Planning (Christmas/Birthday) | Event-specific gift planning with budgets, deadlines, recipient assignment; may be parent-only or user-specific |
+| REQ-B.006 | Secret gift claiming | Allow family members to mark items as "claimed" without the wishlist owner seeing |
 
 ---
 
@@ -706,7 +728,7 @@ Phase 2 is complete when:
 
 ---
 
-**Document Version:** 3.1
-**Last Updated:** December 28, 2025
+**Document Version:** 3.2
+**Last Updated:** February 2, 2026
 **Next Review:** After Phase 2 completion
 **Owner:** James Brown

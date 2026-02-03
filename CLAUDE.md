@@ -1,7 +1,36 @@
 # Claude Code Project Configuration
 
 **Project:** Family Hub - DIY Raspberry Pi Family Organization System
-**Last Updated:** December 28, 2025
+**Last Updated:** January 10, 2026
+
+---
+
+## CRITICAL: Deployment to Pi
+
+### NEVER Push Code Directly to the Pi
+
+**All code deployments to the Raspberry Pi MUST go through GitHub.**
+
+```
+LOCAL MACHINE → GitHub → Pi (via git pull / GitHub Actions)
+```
+
+**NEVER do this:**
+- `scp` files directly to Pi
+- `rsync` code to Pi
+- SSH into Pi and edit files
+- Any direct file transfer to Pi
+
+**ALWAYS do this:**
+1. Make changes locally (in this folder)
+2. Commit to GitHub
+3. Push to GitHub
+4. On Pi: `git pull && docker-compose build --no-cache && docker-compose up -d`
+   OR let GitHub Actions self-hosted runner deploy automatically
+
+**Why:** Direct pushes have caused version fragmentation across machines. GitHub is the single source of truth.
+
+**When user says "push to the Pi":** This ALWAYS means push to GitHub, then deploy from there.
 
 ---
 
