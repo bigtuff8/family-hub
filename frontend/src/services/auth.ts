@@ -4,7 +4,17 @@
  */
 
 import axios from 'axios';
-import type { LoginRequest, TokenResponse, RefreshResponse, CurrentUserResponse } from '../types/auth';
+import type {
+  LoginRequest,
+  TokenResponse,
+  RefreshResponse,
+  CurrentUserResponse,
+  FamilyMember,
+  PinLoginRequest,
+  PinSetupRequest,
+  PinChangeRequest,
+  MessageResponse,
+} from '../types/auth';
 
 const API_URL = '';
 
@@ -142,4 +152,49 @@ export const setupAuthInterceptor = (
       return Promise.reject(error);
     }
   );
+};
+
+// ============ PIN Authentication API ============
+
+// Storage key for tenant ID (for kiosk mode)
+const TENANT_ID_KEY = 'familyhub_tenant_id';
+
+export const getStoredTenantId = (): string | null => {
+  return localStorage.getItem(TENANT_ID_KEY);
+};
+
+export const storeTenantId = (tenantId: string) => {
+  localStorage.setItem(TENANT_ID_KEY, tenantId);
+};
+
+export const getFamilyMembers = async (tenantId: string): Promise<FamilyMember[]> => {
+  const response = await authApi.get<FamilyMember[]>('/family-members', {
+    params: { tenant_id: tenantId },
+  });
+  return response.data;
+};
+
+export const loginWithPin = async (request: PinLoginRequest): Promise<TokenResponse> => {
+  const response = await authApi.post<TokenResponse>('/login/pin', request);
+  return response.data;
+};
+
+export const setupPin = async (
+  accessToken: string,
+  request: PinSetupRequest
+): Promise<MessageResponse> => {
+  const response = await authApi.post<MessageResponse>('/pin/setup', request, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return response.data;
+};
+
+export const changePin = async (
+  accessToken: string,
+  request: PinChangeRequest
+): Promise<MessageResponse> => {
+  const response = await authApi.post<MessageResponse>('/pin/change', request, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return response.data;
 };

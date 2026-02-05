@@ -1,0 +1,158 @@
+/**
+ * OnScreenKeyboard Component Styles
+ * Floating keyboard at bottom of screen
+ */
+
+.osk-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1e293b;
+  border-top: 1px solid #334155;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Close button */
+.osk-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #334155;
+  color: #94a3b8;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.osk-close:hover {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+/* Keyboard rows */
+.osk-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Individual keys */
+.osk-key {
+  min-width: 44px;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.osk-key:hover {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.osk-key:active {
+  background: #2dd4bf;
+  border-color: #2dd4bf;
+  color: #1a2332;
+  transform: scale(0.95);
+}
+
+/* Wide keys (Shift, Backspace) */
+.osk-key-wide {
+  min-width: 72px;
+  font-size: 14px;
+}
+
+/* Active state (for Shift toggle) */
+.osk-key-active {
+  background: #2dd4bf;
+  border-color: #2dd4bf;
+  color: #1a2332;
+}
+
+/* Space bar */
+.osk-key-space {
+  min-width: 200px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+/* Enter key */
+.osk-key-enter {
+  min-width: 64px;
+  background: #2dd4bf;
+  border-color: #2dd4bf;
+  color: #1a2332;
+}
+
+.osk-key-enter:hover {
+  background: #14b8a6;
+  border-color: #14b8a6;
+}
+
+.osk-key-enter:active {
+  background: #0d9488;
+  border-color: #0d9488;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 600px) {
+  .osk-container {
+    padding: 8px;
+    gap: 4px;
+  }
+
+  .osk-row {
+    gap: 4px;
+  }
+
+  .osk-key {
+    min-width: 32px;
+    height: 40px;
+    padding: 0 6px;
+    font-size: 16px;
+  }
+
+  .osk-key-wide {
+    min-width: 52px;
+    font-size: 12px;
+  }
+
+  .osk-key-space {
+    min-width: 120px;
+  }
+}

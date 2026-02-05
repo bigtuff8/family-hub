@@ -52,6 +52,25 @@ class PasswordChange(BaseModel):
     new_password: str = Field(..., min_length=6)
 
 
+class PinLoginRequest(BaseModel):
+    """PIN login request for kiosk mode"""
+    user_id: UUID
+    pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+
+
+class PinSetupRequest(BaseModel):
+    """First-time PIN setup request"""
+    pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+    confirm_pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+
+
+class PinChangeRequest(BaseModel):
+    """Change existing PIN request"""
+    current_pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+    new_pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+    confirm_pin: str = Field(..., min_length=4, max_length=4, pattern="^[0-9]{4}$")
+
+
 # ============ Response Schemas ============
 
 class UserResponse(BaseModel):
@@ -90,6 +109,18 @@ class AccessTokenResponse(BaseModel):
 class MessageResponse(BaseModel):
     """Simple message response"""
     message: str
+
+
+class FamilyMemberResponse(BaseModel):
+    """Family member for kiosk login selection"""
+    id: UUID
+    name: str
+    color: str
+    avatar_url: Optional[str] = None
+    has_pin: bool
+
+    class Config:
+        from_attributes = True
 
 
 class CurrentUserResponse(BaseModel):

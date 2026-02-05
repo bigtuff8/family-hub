@@ -21,6 +21,8 @@ import { useAuth } from '../auth';
 import WeatherWidget from '../../components/WeatherWidget';
 import { getInitials } from '../../utils/strings';
 import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar, syncOutlookCalendar, disconnectCalendar } from '../../services/settings';
+import { PinPad } from '../../components/PinPad';
+import { setupPin, changePin, getStoredTokens } from '../../services/auth';
 import '../contacts/ContactsPage.css';
 import './SettingsPage.css';
 
@@ -55,6 +57,17 @@ export const SettingsPage = () => {
     const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
     const [disconnectProvider, setDisconnectProvider] = useState<string | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // PIN Change/Setup State
+    const [pinModalVisible, setPinModalVisible] = useState(false);
+    const [pinModalMode, setPinModalMode] = useState<'setup' | 'change'>('setup');
+    const [pinStep, setPinStep] = useState<1 | 2 | 3>(1); // 1: current (for change), 2: new, 3: confirm
+    const [currentPinInput, setCurrentPinInput] = useState('');
+    const [newPinInput, setNewPinInput] = useState('');
+    const [pinError, setPinError] = useState<string | null>(null);
+    const [pinSaving, setPinSaving] = useState(false);
+    // For now, we'll assume user has PIN - in a real app, this would come from user data
+    const [hasPin, setHasPin] = useState(false);
 
     const userInitials = getInitials(user?.name) || 'U';
 
@@ -152,6 +165,121 @@ export const SettingsPage = () => {
     const handleDisconnectCancel = () => {
         setDisconnectModalVisible(false);
         setDisconnectProvider(null);
+    };
+
+    // ============ PIN HANDLERS ============
+
+    const openPinModal = (mode: 'setup' | 'change') => {
+        setPinModalMode(mode);
+        setPinStep(mode === 'change' ? 1 : 2); // If changing, start with current PIN entry
+        setCurrentPinInput('');
+        setNewPinInput('');
+        setPinError(null);
+        setPinModalVisible(true);
+    };
+
+    const closePinModal = () => {
+        setPinModalVisible(false);
+        setPinStep(1);
+        setCurrentPinInput('');
+        setNewPinInput('');
+        setPinError(null);
+    };
+
+    const handlePinComplete = async (pin: string) => {
+        const { accessToken } = getStoredTokens();
+        if (!accessToken) {
+            setPinError('Session expired. Please login again.');
+            return;
+        }
+
+        if (pinModalMode === 'setup') {
+            // Setup flow: step 2 = enter new, step 3 = confirm
+            if (pinStep === 2) {
+                setNewPinInput(pin);
+                setPinStep(3);
+                setPinError(null);
+            } else if (pinStep === 3) {
+                if (pin !== newPinInput) {
+                    setPinError('PINs do not match. Try again.');
+                    setPinStep(2);
+                    setNewPinInput('');
+                    return;
+                }
+
+                setPinSaving(true);
+                try {
+                    await setupPin(accessToken, { pin, confirm_pin: pin });
+                    message.success('PIN set up successfully!');
+                    setHasPin(true);
+                    closePinModal();
+                } catch (err: any) {
+                    setPinError(err.response?.data?.detail || 'Failed to set up PIN');
+                } finally {
+                    setPinSaving(false);
+                }
+            }
+        } else {
+            // Change flow: step 1 = current, step 2 = new, step 3 = confirm
+            if (pinStep === 1) {
+                setCurrentPinInput(pin);
+                setPinStep(2);
+                setPinError(null);
+            } else if (pinStep === 2) {
+                setNewPinInput(pin);
+                setPinStep(3);
+                setPinError(null);
+            } else if (pinStep === 3) {
+                if (pin !== newPinInput) {
+                    setPinError('PINs do not match. Try again.');
+                    setPinStep(2);
+                    setNewPinInput('');
+                    return;
+                }
+
+                setPinSaving(true);
+                try {
+                    await changePin(accessToken, {
+                        current_pin: currentPinInput,
+                        new_pin: pin,
+                        confirm_pin: pin,
+                    });
+                    message.success('PIN changed successfully!');
+                    closePinModal();
+                } catch (err: any) {
+                    if (err.response?.status === 401) {
+                        setPinError('Current PIN is incorrect');
+                        setPinStep(1);
+                        setCurrentPinInput('');
+                        setNewPinInput('');
+                    } else {
+                        setPinError(err.response?.data?.detail || 'Failed to change PIN');
+                    }
+                } finally {
+                    setPinSaving(false);
+                }
+            }
+        }
+    };
+
+    const getPinModalTitle = () => {
+        if (pinModalMode === 'setup') {
+            return pinStep === 2 ? 'Create your PIN' : 'Confirm your PIN';
+        } else {
+            if (pinStep === 1) return 'Enter current PIN';
+            if (pinStep === 2) return 'Enter new PIN';
+            return 'Confirm new PIN';
+        }
+    };
+
+    const getPinModalSubtitle = () => {
+        if (pinModalMode === 'setup') {
+            return pinStep === 2 ? 'Choose a 4-digit PIN' : 'Enter the same PIN again';
+        } else {
+            if (pinStep === 1) return 'Verify your identity';
+            if (pinStep === 2) return 'Choose a new 4-digit PIN';
+            return 'Enter the same PIN again';
+        }
     };
 
     const userMenuItems = [
@@ -476,12 +604,20 @@ export const SettingsPage = () => {
                     <RightOutlined style={{ color: '#ccc' }} />
                 </div>
 
-                <div className="settings-detail-item">
+                <div
+                    className="settings-detail-item"
+                    onClick={() => openPinModal(hasPin ? 'change' : 'setup')}
+                    style={{ cursor: 'pointer' }}
+                >
                     <div className="settings-detail-item-content">
-                        <div className="settings-detail-item-title">Enable PIN</div>
-                        <div className="settings-detail-item-value">Quick unlock on shared devices</div>
+                        <div className="settings-detail-item-title">
+                            {hasPin ? 'Change PIN' : 'Set up PIN'}
+                        </div>
+                        <div className="settings-detail-item-value">
+                            {hasPin ? 'Update your 4-digit PIN' : 'Quick unlock on shared devices'}
+                        </div>
                     </div>
-                    <div className="toggle-switch" />
+                    <RightOutlined style={{ color: '#ccc' }} />
                 </div>
             </div>
 
@@ -503,6 +639,25 @@ export const SettingsPage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* PIN Setup/Change Modal */}
+            <Modal
+                open={pinModalVisible}
+                onCancel={closePinModal}
+                footer={null}
+                closable={true}
+                centered
+                className="pin-modal"
+                styles={{ body: { background: '#1e293b', borderRadius: 12, padding: 0 } }}
+            >
+                <PinPad
+                    onComplete={handlePinComplete}
+                    onCancel={closePinModal}
+                    error={pinError || undefined}
+                    title={getPinModalTitle()}
+                    subtitle={getPinModalSubtitle()}
+                />
+            </Modal>
         </div>
     );
 

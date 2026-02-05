@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Hub - PIN Login System Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fef7f0;
+            min-height: 100vh;
+        }
+
+        /* Tabs for switching views */
+        .tabs {
+            display: flex;
+            background: #1a2332;
+            padding: 16px;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: 2px solid #2dd4bf;
+            color: #2dd4bf;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .tab:hover, .tab.active {
+            background: #2dd4bf;
+            color: #1a2332;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .view-title {
+            text-align: center;
+            color: #1a2332;
+            margin: 24px 0;
+            font-size: 24px;
+        }
+
+        /* Description boxes */
+        .description {
+            background: #f8fafc;
+            border-left: 4px solid #2dd4bf;
+            padding: 16px;
+            margin: 24px;
+            border-radius: 0 8px 8px 0;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .description h4 {
+            color: #1a2332;
+            margin-bottom: 8px;
+        }
+
+        .description p {
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ===== CURRENT LOGIN PAGE (for reference) ===== */
+        .current-login-bg {
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: white;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .login-card h2 {
+            text-align: center;
+            color: #1a2332;
+            margin-bottom: 8px;
+        }
+
+        .login-card .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 24px;
+        }
+
+        .form-field {
+            margin-bottom: 16px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            font-size: 16px;
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #bfbfbf;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: #2dd4bf;
+            border: none;
+            border-radius: 8px;
+            color: #1a2332;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .demo-hint {
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 16px;
+        }
+
+        /* ===== NEW LOGIN PAGE - FAMILY SELECTION ===== */
+        .family-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .family-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 3px solid transparent;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .family-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+
+        .family-card.selected {
+            border-color: #2dd4bf;
+        }
+
+        .family-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            color: white;
+            margin: 0 auto 16px;
+        }
+
+        /* Family member colors from CLAUDE.md */
+        .james .family-avatar { background: #e30613; }
+        .nicola .family-avatar { background: #fb7185; }
+        .tommy .family-avatar { background: #00B140; }
+        .harry .family-avatar { background: #1D428A; }
+
+        .family-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a2332;
+        }
+
+        /* ===== PIN ENTRY ===== */
+        .pin-container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .pin-header {
+            margin-bottom: 32px;
+        }
+
+        .pin-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: 700;
+            color: white;
+            margin: 0 auto 16px;
+        }
+
+        .pin-header h2 {
+            font-size: 28px;
+            color: #1a2332;
+            margin-bottom: 8px;
+        }
+
+        .pin-header p {
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        .pin-dots {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .pin-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid #1a2332;
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .pin-dot.filled {
+            background: #2dd4bf;
+            border-color: #2dd4bf;
+        }
+
+        .pin-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+
+        .pin-btn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: none;
+            font-size: 28px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: white;
+            color: #1a2332;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .pin-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .pin-btn:active {
+            transform: scale(0.95);
+            background: #e2e8f0;
+        }
+
+        .pin-btn.action {
+            background: transparent;
+            box-shadow: none;
+            color: #64748b;
+            font-size: 20px;
+        }
+
+        .pin-btn.action:hover {
+            color: #1a2332;
+            background: rgba(0,0,0,0.05);
+        }
+
+        .back-link {
+            margin-top: 32px;
+            color: #2dd4bf;
+            text-decoration: none;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        /* ===== PIN SETUP MODAL ===== */
+        .modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-header h3 {
+            color: #1a2332;
+            font-size: 18px;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            color: #64748b;
+        }
+
+        .modal p {
+            color: #64748b;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        /* ===== ACTUAL SETTINGS PAGE SECURITY SECTION ===== */
+        .settings-page-bg {
+            background: #f0f2f5;
+            min-height: 600px;
+            padding: 24px;
+        }
+
+        .settings-desktop-layout {
+            display: flex;
+            background: #fff;
+            border-radius: 12px;
+            min-height: 500px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .settings-sidebar {
+            width: 220px;
+            min-width: 220px;
+            border-right: 1px solid #f0f0f0;
+            padding: 16px 0;
+        }
+
+        .sidebar-item {
+            padding: 12px 16px;
+            margin: 4px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .sidebar-item:hover {
+            background: #f5f5f5;
+        }
+
+        .sidebar-item.active {
+            background: #f0fdfa;
+            color: #2dd4bf;
+        }
+
+        .settings-main {
+            flex: 1;
+            padding: 24px;
+        }
+
+        .settings-main h4 {
+            margin-bottom: 24px;
+            color: #1a2332;
+            font-size: 18px;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            border: 1px solid #f0f0f0;
+        }
+
+        .settings-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 16px 16px 8px;
+        }
+
+        .settings-detail-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #f5f5f5;
+            gap: 12px;
+        }
+
+        .settings-detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-detail-item-content {
+            flex: 1;
+        }
+
+        .settings-detail-item-title {
+            font-weight: 500;
+            font-size: 16px;
+            color: #1a2332;
+            margin-bottom: 2px;
+        }
+
+        .settings-detail-item-value {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .toggle-switch {
+            width: 48px;
+            height: 28px;
+            background: #e5e5e5;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.active {
+            background: #2dd4bf;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: left 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+
+        .arrow-icon {
+            color: #ccc;
+        }
+
+        .settings-btn {
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            color: #1a2332;
+            font-size: 14px;
+        }
+
+        .settings-btn:hover {
+            background: #e2e8f0;
+        }
+
+        /* ===== FLOATING ON-SCREEN KEYBOARD ===== */
+        .keyboard-demo-container {
+            position: relative;
+            min-height: 700px;
+            background: #fef7f0;
+        }
+
+        .demo-form {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .demo-form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .demo-form-card h3 {
+            margin-bottom: 20px;
+            color: #1a2332;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #1a2332;
+        }
+
+        .form-input-with-keyboard {
+            width: 100%;
+            padding: 12px 48px 12px 16px;
+            border: 1px solid #d9d9d9;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .form-input-with-keyboard:focus {
+            outline: none;
+            border-color: #2dd4bf;
+        }
+
+        .keyboard-trigger {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background: #f1f5f9;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .keyboard-trigger:hover {
+            background: #2dd4bf;
+        }
+
+        .keyboard-trigger svg {
+            width: 20px;
+            height: 20px;
+            color: #64748b;
+        }
+
+        .keyboard-trigger:hover svg {
+            color: white;
+        }
+
+        /* Floating keyboard toggle button */
+        .keyboard-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            background: #2dd4bf;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(45, 212, 191, 0.4);
+            transition: all 0.2s;
+            z-index: 998;
+        }
+
+        .keyboard-fab:hover {
+            transform: scale(1.1);
+        }
+
+        .keyboard-fab svg {
+            width: 28px;
+            height: 28px;
+            color: #1a2332;
+        }
+
+        /* FLOATING KEYBOARD (no overlay!) */
+        .floating-keyboard {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%) translateY(100%);
+            background: #1a2332;
+            padding: 12px 16px 16px;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            z-index: 999;
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .floating-keyboard.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .keyboard-header {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+
+        .keyboard-close {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .keyboard-close:hover {
+            color: white;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .key {
+            min-width: 42px;
+            height: 48px;
+            background: #334155;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .key:hover {
+            background: #475569;
+        }
+
+        .key:active {
+            background: #2dd4bf;
+            color: #1a2332;
+        }
+
+        .key.wide {
+            min-width: 70px;
+            font-size: 14px;
+        }
+
+        .key.extra-wide {
+            min-width: 220px;
+        }
+
+        .key.number {
+            background: #475569;
+        }
+
+        /* State indicator */
+        .keyboard-state {
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        /* Keyboard indicator */
+        .keyboard-indicator {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #2dd4bf;
+            color: #1a2332;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="tabs">
+        <button class="tab active" onclick="showView('current-login')">Current Login</button>
+        <button class="tab" onclick="showView('new-login')">New: Family Selection</button>
+        <button class="tab" onclick="showView('pin-entry')">New: PIN Entry</button>
+        <button class="tab" onclick="showView('pin-setup')">PIN Setup Modal</button>
+        <button class="tab" onclick="showView('settings-security')">Settings: Security</button>
+        <button class="tab" onclick="showView('keyboard')">On-Screen Keyboard</button>
+    </div>
+
+    <!-- View 1: Current Login Page (for reference) -->
+    <div id="current-login" class="view active">
+        <h2 class="view-title">Current Login Page (Before)</h2>
+
+        <div class="description">
+            <h4>Current State</h4>
+            <p>This is the existing login page with email/password fields. We're replacing this with family member selection + PIN entry for touchscreen kiosk use.</p>
+        </div>
+
+        <div class="current-login-bg">
+            <div class="login-card">
+                <h2>Family Hub</h2>
+                <p class="subtitle">Sign in to your account</p>
+
+                <div class="form-field">
+                    <div class="input-wrapper">
+                        <span class="input-icon">👤</span>
+                        <input type="text" class="form-input" placeholder="Email" value="james@brown.family" style="padding-left: 44px;">
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <div class="input-wrapper">
+                        <span class="input-icon">🔒</span>
+                        <input type="password" class="form-input" placeholder="Password" value="••••••••••" style="padding-left: 44px;">
+                    </div>
+                </div>
+
+                <button class="btn-primary">Sign In</button>
+
+                <p class="demo-hint">Demo: james@brown.family / familyhub123</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 2: New Login - Family Selection -->
+    <div id="new-login" class="view">
+        <h2 class="view-title">New Login: Family Member Selection</h2>
+
+        <div class="description">
+            <h4>Tap to Select</h4>
+            <p>Users tap their name card to select themselves. Each family member has their assigned color (James: Liverpool red, Nicola: pink, Tommy: Liverpool green, Harry: Leeds blue). After selection, they enter their PIN.</p>
+        </div>
+
+        <div class="current-login-bg">
+            <div style="text-align: center; padding: 40px 20px;">
+                <h1 style="color: white; font-size: 48px; margin-bottom: 8px;">Family Hub</h1>
+                <p style="color: #94a3b8; font-size: 20px; margin-bottom: 48px;">Who's there?</p>
+
+                <div class="family-grid">
+                    <div class="family-card james" onclick="selectMember(this, 'James')">
+                        <div class="family-avatar">JB</div>
+                        <div class="family-name">James Brown</div>
+                    </div>
+                    <div class="family-card nicola" onclick="selectMember(this, 'Nicola')">
+                        <div class="family-avatar">NB</div>
+                        <div class="family-name">Nicola Brown</div>
+                    </div>
+                    <div class="family-card tommy" onclick="selectMember(this, 'Tommy')">
+                        <div class="family-avatar">TB</div>
+                        <div class="family-name">Tommy Brown</div>
+                    </div>
+                    <div class="family-card harry" onclick="selectMember(this, 'Harry')">
+                        <div class="family-avatar">HB</div>
+                        <div class="family-name">Harry Brown</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 3: PIN Entry -->
+    <div id="pin-entry" class="view">
+        <h2 class="view-title">PIN Entry Screen</h2>
+
+        <div class="description">
+            <h4>4-Digit PIN</h4>
+            <p>After selecting a family member, they enter their 4-digit PIN. Large 72px round buttons are optimized for touchscreen. Dots fill as digits are entered. Wrong PIN triggers shake animation and "Incorrect PIN" message.</p>
+        </div>
+
+        <div class="current-login-bg">
+            <div class="pin-container">
+                <div class="pin-header">
+                    <div class="pin-avatar" style="background: #e30613;">JB</div>
+                    <h2 style="color: white;">James Brown</h2>
+                    <p style="color: #94a3b8;">Enter your PIN</p>
+                </div>
+
+                <div class="pin-dots">
+                    <div class="pin-dot filled"></div>
+                    <div class="pin-dot filled"></div>
+                    <div class="pin-dot"></div>
+                    <div class="pin-dot"></div>
+                </div>
+
+                <div class="pin-pad">
+                    <button class="pin-btn">1</button>
+                    <button class="pin-btn">2</button>
+                    <button class="pin-btn">3</button>
+                    <button class="pin-btn">4</button>
+                    <button class="pin-btn">5</button>
+                    <button class="pin-btn">6</button>
+                    <button class="pin-btn">7</button>
+                    <button class="pin-btn">8</button>
+                    <button class="pin-btn">9</button>
+                    <button class="pin-btn action">C</button>
+                    <button class="pin-btn">0</button>
+                    <button class="pin-btn action">←</button>
+                </div>
+
+                <a class="back-link" onclick="showView('new-login'); document.querySelectorAll('.tab')[1].click();">← Back to family selection</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 4: PIN Setup Modal -->
+    <div id="pin-setup" class="view">
+        <h2 class="view-title">PIN Setup Modal (First Time)</h2>
+
+        <div class="description">
+            <h4>First-Time PIN Creation</h4>
+            <p>If a family member doesn't have a PIN set, this modal appears after they select themselves. They create a 4-digit PIN, then confirm it by entering it again. The modal uses the standard Ant Design modal pattern from Family Hub.</p>
+        </div>
+
+        <div style="position: relative; height: 650px; background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);">
+            <!-- Background content (dimmed) -->
+            <div style="opacity: 0.3; padding: 40px; text-align: center;">
+                <h1 style="color: white; font-size: 36px;">Family Hub</h1>
+                <p style="color: #94a3b8;">Who's there?</p>
+            </div>
+
+            <!-- Modal overlay -->
+            <div class="modal-overlay">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Create Your PIN</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+
+                    <p>Hi James! Create a 4-digit PIN to secure your account.</p>
+
+                    <div class="pin-dots" style="margin-bottom: 24px;">
+                        <div class="pin-dot filled"></div>
+                        <div class="pin-dot filled"></div>
+                        <div class="pin-dot filled"></div>
+                        <div class="pin-dot"></div>
+                    </div>
+
+                    <div class="pin-pad" style="margin-bottom: 16px;">
+                        <button class="pin-btn">1</button>
+                        <button class="pin-btn">2</button>
+                        <button class="pin-btn">3</button>
+                        <button class="pin-btn">4</button>
+                        <button class="pin-btn">5</button>
+                        <button class="pin-btn">6</button>
+                        <button class="pin-btn">7</button>
+                        <button class="pin-btn">8</button>
+                        <button class="pin-btn">9</button>
+                        <button class="pin-btn action">C</button>
+                        <button class="pin-btn">0</button>
+                        <button class="pin-btn action">←</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h3 style="text-align: center; color: #64748b; margin: 24px 0 16px;">Step 2: Confirm PIN</h3>
+
+        <div style="position: relative; height: 500px; background: linear-gradient(135deg, #1a2332 0%, #2d3748 100%);">
+            <div style="opacity: 0.3; padding: 40px; text-align: center;">
+                <h1 style="color: white; font-size: 36px;">Family Hub</h1>
+            </div>
+
+            <div class="modal-overlay">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Confirm Your PIN</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+
+                    <p>Enter your PIN again to confirm.</p>
+
+                    <div class="pin-dots" style="margin-bottom: 24px;">
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                    </div>
+
+                    <div class="pin-pad">
+                        <button class="pin-btn">1</button>
+                        <button class="pin-btn">2</button>
+                        <button class="pin-btn">3</button>
+                        <button class="pin-btn">4</button>
+                        <button class="pin-btn">5</button>
+                        <button class="pin-btn">6</button>
+                        <button class="pin-btn">7</button>
+                        <button class="pin-btn">8</button>
+                        <button class="pin-btn">9</button>
+                        <button class="pin-btn action">C</button>
+                        <button class="pin-btn">0</button>
+                        <button class="pin-btn action">←</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 5: Settings Security Section (ACTUAL) -->
+    <div id="settings-security" class="view">
+        <h2 class="view-title">Settings: Security Section (Actual Screen)</h2>
+
+        <div class="description">
+            <h4>Real Settings Page</h4>
+            <p>This is the actual Security section from SettingsPage.tsx. The "Enable PIN" toggle becomes "Change PIN" button once a PIN is set. Clicking it opens a modal to verify current PIN, then set new PIN.</p>
+        </div>
+
+        <div class="settings-page-bg">
+            <div class="settings-desktop-layout">
+                <div class="settings-sidebar">
+                    <div class="sidebar-item">
+                        <span>👤</span> Profile
+                    </div>
+                    <div class="sidebar-item">
+                        <span>🌐</span> Connected Accounts
+                    </div>
+                    <div class="sidebar-item active">
+                        <span>🔒</span> Security
+                    </div>
+                    <div class="sidebar-item">
+                        <span>⚙️</span> System
+                    </div>
+                </div>
+
+                <div class="settings-main">
+                    <h4>Security</h4>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">Authentication</div>
+
+                        <div class="settings-detail-item">
+                            <div class="settings-detail-item-content">
+                                <div class="settings-detail-item-title">Change Password</div>
+                                <div class="settings-detail-item-value">Update your password</div>
+                            </div>
+                            <span class="arrow-icon">›</span>
+                        </div>
+
+                        <div class="settings-detail-item" style="background: #f0fdfa;">
+                            <div class="settings-detail-item-content">
+                                <div class="settings-detail-item-title">Change PIN</div>
+                                <div class="settings-detail-item-value">Update your 4-digit login PIN</div>
+                            </div>
+                            <button class="settings-btn" onclick="alert('Opens PIN change modal:\n1. Enter current PIN\n2. Enter new PIN\n3. Confirm new PIN')">Change</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">Sessions</div>
+
+                        <div class="settings-detail-item">
+                            <div class="settings-detail-item-content">
+                                <div class="settings-detail-item-title">Active Sessions</div>
+                                <div class="settings-detail-item-value">1 device</div>
+                            </div>
+                            <span class="arrow-icon">›</span>
+                        </div>
+
+                        <div class="settings-detail-item">
+                            <div class="settings-detail-item-content">
+                                <div class="settings-detail-item-title">Sign Out Everywhere</div>
+                                <div class="settings-detail-item-value" style="color: #fb7185;">End all sessions</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change PIN Modal -->
+        <h3 style="text-align: center; color: #64748b; margin: 24px 0 16px;">Change PIN Modal (when clicking "Change")</h3>
+
+        <div style="position: relative; height: 500px; background: #f0f2f5;">
+            <div class="modal-overlay" style="background: rgba(0,0,0,0.45);">
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3>Change PIN</h3>
+                        <button class="modal-close">×</button>
+                    </div>
+
+                    <p>Enter your current PIN to continue.</p>
+
+                    <div class="pin-dots" style="margin-bottom: 24px;">
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                        <div class="pin-dot"></div>
+                    </div>
+
+                    <div class="pin-pad">
+                        <button class="pin-btn">1</button>
+                        <button class="pin-btn">2</button>
+                        <button class="pin-btn">3</button>
+                        <button class="pin-btn">4</button>
+                        <button class="pin-btn">5</button>
+                        <button class="pin-btn">6</button>
+                        <button class="pin-btn">7</button>
+                        <button class="pin-btn">8</button>
+                        <button class="pin-btn">9</button>
+                        <button class="pin-btn action">C</button>
+                        <button class="pin-btn">0</button>
+                        <button class="pin-btn action">←</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View 6: On-Screen Keyboard -->
+    <div id="keyboard" class="view">
+        <h2 class="view-title">On-Screen Keyboard</h2>
+
+        <div class="description">
+            <h4>Floating Keyboard (No Overlay)</h4>
+            <p><strong>Triggers:</strong><br>
+            1. Tap the keyboard icon inside any text input<br>
+            2. Tap the floating teal button in the bottom-right corner<br><br>
+            <strong>Features:</strong> Number row, QWERTY letters, symbols via Shift, backspace, space bar. The keyboard floats at the bottom - no dark overlay blocking the rest of the screen.</p>
+        </div>
+
+        <div class="keyboard-demo-container">
+            <div class="demo-form">
+                <div class="demo-form-card">
+                    <h3>Create Event</h3>
+
+                    <div class="form-field">
+                        <label class="form-label">Event Title</label>
+                        <div class="input-wrapper">
+                            <input type="text" class="form-input-with-keyboard" placeholder="Enter event title" id="demo-title">
+                            <button class="keyboard-trigger" onclick="toggleKeyboard()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                    <line x1="6" y1="10" x2="6" y2="10" stroke-linecap="round"/>
+                                    <line x1="10" y1="10" x2="10" y2="10" stroke-linecap="round"/>
+                                    <line x1="14" y1="10" x2="14" y2="10" stroke-linecap="round"/>
+                                    <line x1="18" y1="10" x2="18" y2="10" stroke-linecap="round"/>
+                                    <line x1="8" y1="14" x2="16" y2="14"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Location</label>
+                        <div class="input-wrapper">
+                            <input type="text" class="form-input-with-keyboard" placeholder="Enter location" id="demo-location">
+                            <button class="keyboard-trigger" onclick="toggleKeyboard()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                    <line x1="6" y1="10" x2="6" y2="10" stroke-linecap="round"/>
+                                    <line x1="10" y1="10" x2="10" y2="10" stroke-linecap="round"/>
+                                    <line x1="14" y1="10" x2="14" y2="10" stroke-linecap="round"/>
+                                    <line x1="18" y1="10" x2="18" y2="10" stroke-linecap="round"/>
+                                    <line x1="8" y1="14" x2="16" y2="14"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label class="form-label">Description</label>
+                        <div class="input-wrapper">
+                            <input type="text" class="form-input-with-keyboard" placeholder="Add description" id="demo-desc">
+                            <button class="keyboard-trigger" onclick="toggleKeyboard()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                    <line x1="6" y1="10" x2="6" y2="10" stroke-linecap="round"/>
+                                    <line x1="10" y1="10" x2="10" y2="10" stroke-linecap="round"/>
+                                    <line x1="14" y1="10" x2="14" y2="10" stroke-linecap="round"/>
+                                    <line x1="18" y1="10" x2="18" y2="10" stroke-linecap="round"/>
+                                    <line x1="8" y1="14" x2="16" y2="14"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p style="text-align: center; color: #64748b; margin-top: 24px;">
+                    Click a keyboard icon or the floating button (bottom-right) to show/hide keyboard
+                </p>
+            </div>
+
+            <!-- Floating toggle button -->
+            <button class="keyboard-fab" onclick="toggleKeyboard()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="6" width="20" height="12" rx="2"/>
+                    <line x1="6" y1="10" x2="6" y2="10" stroke-linecap="round"/>
+                    <line x1="10" y1="10" x2="10" y2="10" stroke-linecap="round"/>
+                    <line x1="14" y1="10" x2="14" y2="10" stroke-linecap="round"/>
+                    <line x1="18" y1="10" x2="18" y2="10" stroke-linecap="round"/>
+                    <line x1="8" y1="14" x2="16" y2="14"/>
+                </svg>
+            </button>
+
+            <!-- Floating keyboard (no overlay!) -->
+            <div class="floating-keyboard" id="keyboard-panel">
+                <div class="keyboard-header">
+                    <span class="keyboard-indicator" id="shift-indicator">ABC</span>
+                    <button class="keyboard-close" onclick="toggleKeyboard()">Done</button>
+                </div>
+
+                <!-- Number row -->
+                <div class="keyboard-row">
+                    <button class="key number" data-key="1" data-shift="!">1</button>
+                    <button class="key number" data-key="2" data-shift="@">2</button>
+                    <button class="key number" data-key="3" data-shift="#">3</button>
+                    <button class="key number" data-key="4" data-shift="$">4</button>
+                    <button class="key number" data-key="5" data-shift="%">5</button>
+                    <button class="key number" data-key="6" data-shift="^">6</button>
+                    <button class="key number" data-key="7" data-shift="&">7</button>
+                    <button class="key number" data-key="8" data-shift="*">8</button>
+                    <button class="key number" data-key="9" data-shift="(">9</button>
+                    <button class="key number" data-key="0" data-shift=")">0</button>
+                </div>
+
+                <!-- QWERTY rows -->
+                <div class="keyboard-row">
+                    <button class="key" data-key="q">Q</button>
+                    <button class="key" data-key="w">W</button>
+                    <button class="key" data-key="e">E</button>
+                    <button class="key" data-key="r">R</button>
+                    <button class="key" data-key="t">T</button>
+                    <button class="key" data-key="y">Y</button>
+                    <button class="key" data-key="u">U</button>
+                    <button class="key" data-key="i">I</button>
+                    <button class="key" data-key="o">O</button>
+                    <button class="key" data-key="p">P</button>
+                </div>
+
+                <div class="keyboard-row">
+                    <button class="key" data-key="a">A</button>
+                    <button class="key" data-key="s">S</button>
+                    <button class="key" data-key="d">D</button>
+                    <button class="key" data-key="f">F</button>
+                    <button class="key" data-key="g">G</button>
+                    <button class="key" data-key="h">H</button>
+                    <button class="key" data-key="j">J</button>
+                    <button class="key" data-key="k">K</button>
+                    <button class="key" data-key="l">L</button>
+                </div>
+
+                <div class="keyboard-row">
+                    <button class="key wide" id="shift-key" onclick="toggleShift()">⇧ Shift</button>
+                    <button class="key" data-key="z">Z</button>
+                    <button class="key" data-key="x">X</button>
+                    <button class="key" data-key="c">C</button>
+                    <button class="key" data-key="v">V</button>
+                    <button class="key" data-key="b">B</button>
+                    <button class="key" data-key="n">N</button>
+                    <button class="key" data-key="m">M</button>
+                    <button class="key wide" onclick="doBackspace()">⌫</button>
+                </div>
+
+                <div class="keyboard-row">
+                    <button class="key wide" onclick="toggleSymbols()">?123</button>
+                    <button class="key" data-key=",">,</button>
+                    <button class="key extra-wide" onclick="doSpace()">Space</button>
+                    <button class="key" data-key=".">.</button>
+                    <button class="key wide" style="background: #2dd4bf; color: #1a2332;" onclick="toggleKeyboard()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activeInput = null;
+        let shiftActive = false;
+        let symbolsActive = false;
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            event.target.classList.add('active');
+
+            // Hide keyboard when switching views
+            document.getElementById('keyboard-panel')?.classList.remove('visible');
+        }
+
+        function selectMember(card, name) {
+            document.querySelectorAll('.family-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            setTimeout(() => {
+                showView('pin-entry');
+                document.querySelectorAll('.tab')[2].click();
+            }, 300);
+        }
+
+        function toggleKeyboard() {
+            const kb = document.getElementById('keyboard-panel');
+            kb.classList.toggle('visible');
+
+            // Focus on title input if opening
+            if (kb.classList.contains('visible') && !activeInput) {
+                activeInput = document.getElementById('demo-title');
+                activeInput.focus();
+            }
+        }
+
+        function toggleShift() {
+            shiftActive = !shiftActive;
+            const indicator = document.getElementById('shift-indicator');
+            const shiftKey = document.getElementById('shift-key');
+
+            if (shiftActive) {
+                indicator.textContent = '!@#';
+                shiftKey.style.background = '#2dd4bf';
+                shiftKey.style.color = '#1a2332';
+            } else {
+                indicator.textContent = 'ABC';
+                shiftKey.style.background = '';
+                shiftKey.style.color = '';
+            }
+
+            // Update number row to show symbols
+            document.querySelectorAll('.key.number').forEach(key => {
+                if (shiftActive) {
+                    key.textContent = key.dataset.shift;
+                } else {
+                    key.textContent = key.dataset.key;
+                }
+            });
+        }
+
+        function toggleSymbols() {
+            symbolsActive = !symbolsActive;
+            // In real implementation, this would switch keyboard layout
+            alert('Symbols keyboard: ! @ # $ % ^ & * ( ) - _ = + [ ] { } ; : \' " , . < > / ?');
+        }
+
+        function doBackspace() {
+            if (activeInput) {
+                activeInput.value = activeInput.value.slice(0, -1);
+                activeInput.focus();
+            }
+        }
+
+        function doSpace() {
+            if (activeInput) {
+                activeInput.value += ' ';
+                activeInput.focus();
+            }
+        }
+
+        // Handle key presses
+        document.querySelectorAll('.key[data-key]').forEach(key => {
+            key.addEventListener('click', () => {
+                if (!activeInput) {
+                    activeInput = document.getElementById('demo-title');
+                }
+
+                let char = key.dataset.key;
+
+                // For number keys, check if shift is active
+                if (key.classList.contains('number') && shiftActive) {
+                    char = key.dataset.shift;
+                } else if (shiftActive && char.length === 1) {
+                    char = char.toUpperCase();
+                } else {
+                    char = char.toLowerCase();
+                }
+
+                activeInput.value += char;
+                activeInput.focus();
+
+                // Turn off shift after typing a character (like real keyboard)
+                if (shiftActive && !key.classList.contains('number')) {
+                    toggleShift();
+                }
+            });
+        });
+
+        // Track which input is focused
+        document.querySelectorAll('.form-input-with-keyboard').forEach(input => {
+            input.addEventListener('focus', () => {
+                activeInput = input;
+            });
+        });
+    </script>
+</body>
+</html>

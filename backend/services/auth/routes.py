@@ -369,3 +369,146 @@ async def delete_user(
     await crud.revoke_all_user_tokens(db, user_id)
 
     return schemas.MessageResponse(message="User deactivated successfully")
+
+
+# ============ PIN Authentication (Kiosk Mode) ============
+
+@router.get("/family-members", response_model=list[schemas.FamilyMemberResponse])
+async def list_family_members(
+    tenant_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    List family members for kiosk login selection.
+    This endpoint is public (no auth required) for kiosk use.
+    """
+    members = await crud.get_family_members(db, tenant_id)
+    return [
+        schemas.FamilyMemberResponse(
+            id=m.id,
+            name=m.name,
+            color=m.color,
+            avatar_url=m.avatar_url,
+            has_pin=m.hashed_pin is not None,
+        )
+        for m in members
+    ]
+
+
+@router.post("/login/pin", response_model=schemas.TokenResponse)
+async def login_with_pin(
+    request: schemas.PinLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Authenticate user with PIN for kiosk mode.
+    """
+    user = await crud.authenticate_user_by_pin(db, request.user_id, request.pin)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid PIN",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Get tenant info
+    tenant = await crud.get_tenant_by_id(db, user.tenant_id)
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User tenant not found",
+        )
+
+    # Create tokens
+    token_data = {
+        "sub": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "tenant_id": str(user.tenant_id),
+    }
+
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    # Store refresh token
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    await crud.store_refresh_token(db, user.id, refresh_token, expires_at)
+
+    # Update last login
+    await crud.update_last_login(db, user)
+
+    return schemas.TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=schemas.UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            color=user.color,
+            avatar_url=user.avatar_url,
+            tenant_id=user.tenant_id,
+            is_active=user.is_active,
+            last_login=user.last_login,
+            created_at=user.created_at,
+        )
+    )
+
+
+@router.post("/pin/setup", response_model=schemas.MessageResponse)
+async def setup_pin(
+    request: schemas.PinSetupRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Set up PIN for first time (requires authentication).
+    """
+    if current_user.hashed_pin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PIN already set. Use /pin/change to update it.",
+        )
+
+    if request.pin != request.confirm_pin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="PINs do not match",
+        )
+
+    await crud.set_user_pin(db, current_user, request.pin)
+    return schemas.MessageResponse(message="PIN set successfully")
+
+
+@router.post("/pin/change", response_model=schemas.MessageResponse)
+async def change_pin(
+    request: schemas.PinChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Change existing PIN (requires authentication and current PIN).
+    """
+    if not current_user.hashed_pin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No PIN set. Use /pin/setup to create one.",
+        )
+
+    if not crud.verify_user_pin(current_user, request.current_pin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current PIN is incorrect",
+        )
+
+    if request.new_pin != request.confirm_pin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New PINs do not match",
+        )
+
+    await crud.set_user_pin(db, current_user, request.new_pin)
+    return schemas.MessageResponse(message="PIN changed successfully")

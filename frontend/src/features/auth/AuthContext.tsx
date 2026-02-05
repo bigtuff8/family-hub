@@ -10,6 +10,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { User, AuthState } from '../../types/auth';
 import {
   login as apiLogin,
+  loginWithPin as apiLoginWithPin,
   logout as apiLogout,
   getCurrentUser,
   getStoredTokens,
@@ -17,11 +18,13 @@ import {
   clearTokens,
   storeUser,
   getStoredUser,
+  storeTenantId,
   setupAuthInterceptor,
 } from '../../services/auth';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  loginWithPin: (userId: string, pin: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -116,6 +119,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       storeTokens(response.access_token, response.refresh_token);
       storeUser(response.user as any);
+      // Store tenant ID for kiosk mode
+      storeTenantId(response.user.tenant_id);
+
+      setState({
+        user: response.user,
+        accessToken: response.access_token,
+        refreshToken: response.refresh_token,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  }, []);
+
+  const loginWithPin = useCallback(async (userId: string, pin: string) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+
+    try {
+      const response = await apiLoginWithPin({ user_id: userId, pin });
+
+      storeTokens(response.access_token, response.refresh_token);
+      storeUser(response.user as any);
+      // Store tenant ID for kiosk mode
+      storeTenantId(response.user.tenant_id);
 
       setState({
         user: response.user,
@@ -162,6 +191,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       value={{
         ...state,
         login,
+        loginWithPin,
         logout,
         refreshUser,
       }}

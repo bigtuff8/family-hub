@@ -1,0 +1,46 @@
+/**
+ * KeyboardContext Styles
+ * Floating action button for keyboard toggle
+ */
+
+.keyboard-toggle-fab {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #334155;
+  color: #e2e8f0;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  z-index: 999;
+}
+
+.keyboard-toggle-fab:hover {
+  background: #475569;
+  transform: scale(1.05);
+}
+
+.keyboard-toggle-fab:active {
+  transform: scale(0.95);
+}
+
+.keyboard-toggle-fab.active {
+  background: #2dd4bf;
+  color: #1a2332;
+  bottom: 320px; /* Move up when keyboard is visible */
+}
+
+/* Hide FAB when keyboard is showing on small screens */
+@media (max-width: 600px) {
+  .keyboard-toggle-fab.active {
+    bottom: 280px;
+  }
+}

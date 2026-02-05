@@ -46,3 +46,32 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+// PIN Authentication Types
+export interface FamilyMember {
+  id: string;
+  name: string;
+  color: string;
+  avatar_url: string | null;
+  has_pin: boolean;
+}
+
+export interface PinLoginRequest {
+  user_id: string;
+  pin: string;
+}
+
+export interface PinSetupRequest {
+  pin: string;
+  confirm_pin: string;
+}
+
+export interface PinChangeRequest {
+  current_pin: string;
+  new_pin: string;
+  confirm_pin: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}

@@ -185,3 +185,57 @@ async def revoke_all_user_tokens(db: AsyncSession, user_id: UUID) -> int:
         count += 1
     await db.commit()
     return count
+
+
+# ============ PIN Authentication ============
+
+async def get_family_members(db: AsyncSession, tenant_id: UUID) -> list[User]:
+    """Get all active family members for kiosk login selection."""
+    result = await db.execute(
+        select(User)
+        .where(
+            and_(
+                User.tenant_id == tenant_id,
+                User.is_active == True
+            )
+        )
+        .order_by(User.name)
+    )
+    return result.scalars().all()
+
+
+async def authenticate_user_by_pin(
+    db: AsyncSession,
+    user_id: UUID,
+    pin: str
+) -> Optional[User]:
+    """Authenticate user by user ID and PIN."""
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        return None
+    if not user.hashed_pin:
+        return None
+    if not verify_password(pin, user.hashed_pin):
+        return None
+    if not user.is_active:
+        return None
+    return user
+
+
+async def set_user_pin(
+    db: AsyncSession,
+    user: User,
+    pin: str
+) -> User:
+    """Set or update user's PIN."""
+    user.hashed_pin = get_password_hash(pin)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def verify_user_pin(user: User, pin: str) -> bool:
+    """Verify a user's PIN without authentication."""
+    if not user.hashed_pin:
+        return False
+    return verify_password(pin, user.hashed_pin)

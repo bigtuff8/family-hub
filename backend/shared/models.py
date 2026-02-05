@@ -38,6 +38,7 @@ class User(Base):
     email = Column(String(255), unique=True)
     name = Column(String(255), nullable=False)
     hashed_password = Column(String(255))
+    hashed_pin = Column(String(255))  # 4-digit PIN for kiosk login
     avatar_url = Column(Text)
     role = Column(String(50), nullable=False)  # admin, parent, child, guest
     color = Column(String(7), default='#3b82f6')  # Hex color for calendar

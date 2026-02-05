@@ -10,6 +10,7 @@ import { ShoppingListPage } from './features/shopping';
 import { ContactsPage } from './features/contacts/ContactsPage';
 import { SettingsPage } from './features/settings';
 import Calendar from './features/calendar/Calendar';
+import { KeyboardProvider } from './components/OnScreenKeyboard';
 import './App.css';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
     >
       <BrowserRouter>
         <AuthProvider>
+          <KeyboardProvider>
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
@@ -72,6 +74,7 @@ function App() {
             {/* Catch-all redirect */}
             <Route path="*" element={<Navigate to="/calendar" replace />} />
           </Routes>
+          </KeyboardProvider>
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>
