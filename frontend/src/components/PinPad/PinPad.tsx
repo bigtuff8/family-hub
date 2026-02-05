@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { BackspaceOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { DeleteOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import './PinPad.css';
 
 interface PinPadProps {
@@ -114,7 +114,7 @@ const PinPad: React.FC<PinPadProps> = ({
           type="button"
           title="Backspace"
         >
-          <BackspaceOutlined />
+          <DeleteOutlined />
         </button>
       </div>
 
