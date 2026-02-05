@@ -11,10 +11,12 @@ import { ContactsPage } from './features/contacts/ContactsPage';
 import { SettingsPage } from './features/settings';
 import Calendar from './features/calendar/Calendar';
 import { KeyboardProvider } from './components/OnScreenKeyboard';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function App() {
   return (
+    <ErrorBoundary>
     <ConfigProvider
       theme={{
         token: {
@@ -78,6 +80,7 @@ function App() {
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>
+    </ErrorBoundary>
   );
 }
 
