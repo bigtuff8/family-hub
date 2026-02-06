@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { KeyboardOutlined } from '@ant-design/icons';
+import { EditOutlined } from '@ant-design/icons';
 import OnScreenKeyboard from './OnScreenKeyboard';
 import './KeyboardContext.css';
 
@@ -151,7 +151,7 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
         type="button"
         title="Toggle Keyboard"
       >
-        <KeyboardOutlined />
+        <EditOutlined />
       </button>
 
       {/* On-Screen Keyboard */}
