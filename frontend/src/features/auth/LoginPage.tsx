@@ -327,6 +327,7 @@ const LoginPage: React.FC = () => {
       className="pin-setup-modal"
     >
       <PinPad
+        key={`pin-setup-step-${setupStep}`}
         onComplete={handleSetupPinComplete}
         onCancel={() => {
           setSetupModalVisible(false);
