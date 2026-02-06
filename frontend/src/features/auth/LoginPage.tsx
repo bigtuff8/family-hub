@@ -38,6 +38,7 @@ const LoginPage: React.FC = () => {
   const [setupPin2, setSetupPin2] = useState('');
   const [setupStep, setSetupStep] = useState<1 | 2>(1);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [pinResetKey, setPinResetKey] = useState(0); // Force PinPad remount
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -136,6 +137,7 @@ const LoginPage: React.FC = () => {
     if (setupStep === 1) {
       setSetupPin1(pin);
       setSetupStep(2);
+      setPinResetKey(prev => prev + 1); // Force PinPad to reset for step 2
       setSetupError(null);
     } else {
       if (pin !== setupPin1) {
@@ -143,6 +145,7 @@ const LoginPage: React.FC = () => {
         setSetupStep(1);
         setSetupPin1('');
         setSetupPin2('');
+        setPinResetKey(prev => prev + 1); // Reset for retry
         return;
       }
 
@@ -327,13 +330,14 @@ const LoginPage: React.FC = () => {
       className="pin-setup-modal"
     >
       <PinPad
-        key={`pin-setup-step-${setupStep}`}
+        key={`pin-setup-${pinResetKey}`}
         onComplete={handleSetupPinComplete}
         onCancel={() => {
           setSetupModalVisible(false);
           setSetupStep(1);
           setSetupPin1('');
           setSetupError(null);
+          setPinResetKey(prev => prev + 1);
         }}
         error={setupError || undefined}
         title={setupStep === 1 ? 'Create your PIN' : 'Confirm your PIN'}
