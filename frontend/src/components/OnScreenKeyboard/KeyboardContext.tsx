@@ -3,7 +3,7 @@
  * Global state management for on-screen keyboard visibility
  */
 
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import OnScreenKeyboard from './OnScreenKeyboard';
 import './KeyboardContext.css';
@@ -33,6 +33,7 @@ interface KeyboardProviderProps {
 export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const activeInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const showKeyboard = useCallback(() => setIsVisible(true), []);
   const hideKeyboard = useCallback(() => setIsVisible(false), []);
@@ -40,6 +41,38 @@ export const KeyboardProvider: React.FC<KeyboardProviderProps> = ({ children }) 
 
   const setActiveInput = useCallback((input: HTMLInputElement | HTMLTextAreaElement | null) => {
     activeInputRef.current = input;
+  }, []);
+
+  // Auto-detect focus on any input/textarea within the provider
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        // Don't auto-show for password fields by default (security)
+        // but still register the input so keyboard works when FAB is tapped
+        activeInputRef.current = target;
+      }
+    };
+
+    const handleFocusOut = (e: FocusEvent) => {
+      // Check if focus moved to another input or to the keyboard
+      const relatedTarget = e.relatedTarget as HTMLElement | null;
+      if (relatedTarget) {
+        // If clicking keyboard buttons, don't clear the active input
+        if (relatedTarget.closest('.on-screen-keyboard') ||
+            relatedTarget.closest('.keyboard-toggle-fab')) {
+          return;
+        }
+      }
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+    };
   }, []);
 
   const handleKeyPress = useCallback((key: string) => {
