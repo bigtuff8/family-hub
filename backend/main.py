@@ -21,6 +21,7 @@ from services.calendar.routes import router as calendar_router
 from services.auth.routes import router as auth_router
 from services.shopping.routes import router as shopping_router
 from services.contacts.routes import router as contacts_router
+from services.tasks.routes import router as tasks_router
 
 load_dotenv()
 
@@ -115,8 +116,13 @@ app.include_router(
     tags=["Contacts"]
 )
 
+app.include_router(
+    tasks_router,
+    prefix="/api/v1/tasks",
+    tags=["Tasks"]
+)
+
 # Add more routers here as you build them
-# app.include_router(tasks_router, prefix="/api/v1/tasks", tags=["Tasks"])
 # app.include_router(recipes_router, prefix="/api/v1/recipes", tags=["Recipes"])
 
 if __name__ == "__main__":

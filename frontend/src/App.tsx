@@ -7,6 +7,7 @@ import { ConfigProvider } from 'antd';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, LoginPage, ProtectedRoute } from './features/auth';
 import { ShoppingListPage } from './features/shopping';
+import { TaskListPage } from './features/tasks';
 import { ContactsPage } from './features/contacts/ContactsPage';
 import { SettingsPage } from './features/settings';
 import Calendar from './features/calendar/Calendar';
@@ -50,6 +51,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ShoppingListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/todos"
+              element={
+                <ProtectedRoute>
+                  <TaskListPage />
                 </ProtectedRoute>
               }
             />

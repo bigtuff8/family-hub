@@ -172,7 +172,7 @@ class Task(Base):
     due_date = Column(Date)
     due_time = Column(Time)
     recurrence_rule = Column(Text)
-    status = Column(String(50), nullable=False)  # pending, in_progress, complete, cancelled
+    status = Column(String(50), nullable=False, default='pending')  # pending, in_progress, complete, cancelled
     priority = Column(String(50), default='normal')  # low, normal, high, urgent
     points = Column(Integer, default=0)
     category = Column(String(100))
@@ -181,6 +181,68 @@ class Task(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    subtasks = relationship("SubTask", back_populates="task", cascade="all, delete-orphan", order_by="SubTask.sort_order")
+    assigned_user = relationship("User", foreign_keys=[user_id])
+    completed_by_user = relationship("User", foreign_keys=[completed_by])
+    created_by_user = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        Index('idx_tasks_tenant', 'tenant_id'),
+        Index('idx_tasks_user', 'user_id'),
+        Index('idx_tasks_status', 'tenant_id', 'status'),
+        Index('idx_tasks_due_date', 'tenant_id', 'due_date'),
+    )
+
+
+class SubTask(Base):
+    """Checklist item within a task"""
+    __tablename__ = "subtasks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    title = Column(Text, nullable=False)
+    completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime(timezone=True))
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    task = relationship("Task", back_populates="subtasks")
+
+    __table_args__ = (
+        Index('idx_subtasks_task', 'task_id'),
+        Index('idx_subtasks_tenant', 'tenant_id'),
+    )
+
+
+class TaskNudge(Base):
+    """Nudge notification for a task - 24hr cooldown per task/person pair"""
+    __tablename__ = "task_nudges"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id = Column(UUID(as_uuid=True), ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    from_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    to_user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    message = Column(Text)
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    task = relationship("Task")
+    from_user = relationship("User", foreign_keys=[from_user_id])
+    to_user = relationship("User", foreign_keys=[to_user_id])
+
+    __table_args__ = (
+        Index('idx_nudges_task', 'task_id'),
+        Index('idx_nudges_to_user', 'to_user_id', 'is_read'),
+        Index('idx_nudges_tenant', 'tenant_id'),
+    )
 
 
 class ShoppingList(Base):

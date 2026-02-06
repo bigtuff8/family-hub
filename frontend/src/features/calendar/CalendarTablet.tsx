@@ -1,10 +1,12 @@
-import { Card, Avatar, Button, Space, Dropdown } from 'antd';
-import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, PlusOutlined, SettingOutlined, GoogleOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { Card, Avatar, Button, Space, Dropdown, Badge } from 'antd';
+import { ClockCircleOutlined, EnvironmentOutlined, RightOutlined, CalendarOutlined, AppstoreOutlined, LogoutOutlined, UserOutlined, TeamOutlined, ShoppingCartOutlined, CheckSquareOutlined, BellOutlined, SettingOutlined, GoogleOutlined } from '@ant-design/icons';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useAuth } from '../auth';
 import { ShoppingSnapshot } from '../shopping';
+import { TodoSnapshot, NudgeInboxDrawer } from '../tasks';
+import { tasksApi } from '../../services/tasks';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import CalendarEventForm from './CalendarEventForm';
@@ -62,8 +64,26 @@ export default function CalendarTablet({
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [selectedEvent, setSelectedEvent] = useState<any>(undefined);
+  const [nudgeCount, setNudgeCount] = useState(0);
+  const [nudgeDrawerVisible, setNudgeDrawerVisible] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Poll for nudge notifications
+  const fetchNudgeCount = useCallback(async () => {
+    try {
+      const count = await tasksApi.getUnreadNudgeCount();
+      setNudgeCount(count);
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNudgeCount();
+    const interval = setInterval(fetchNudgeCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNudgeCount]);
 
   // Get user initials
   const userInitials = getInitials(user?.name) || 'U';
@@ -84,6 +104,18 @@ export default function CalendarTablet({
       icon: <ShoppingCartOutlined />,
       label: 'Shopping List',
       onClick: () => navigate('/shopping'),
+    },
+    {
+      key: 'tasks',
+      icon: <CheckSquareOutlined />,
+      label: 'Tasks',
+      onClick: () => navigate('/todos'),
+    },
+    {
+      key: 'notifications',
+      icon: <BellOutlined />,
+      label: nudgeCount > 0 ? `Notifications (${nudgeCount})` : 'Notifications',
+      onClick: () => setNudgeDrawerVisible(true),
     },
     {
       key: 'contacts',
@@ -239,22 +271,24 @@ export default function CalendarTablet({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: '0 0 auto' }}>
           <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
-            <div style={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: user?.color || 'linear-gradient(135deg, #2dd4bf, #fb7185)',
-              border: '3px solid white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 20,
-              fontWeight: 600,
-              cursor: 'pointer',
-              color: 'white',
-            }}>
-              {userInitials}
-            </div>
+            <Badge count={nudgeCount} offset={[-4, 4]} size="small">
+              <div style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: user?.color || 'linear-gradient(135deg, #2dd4bf, #fb7185)',
+                border: '3px solid white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 20,
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: 'white',
+              }}>
+                {userInitials}
+              </div>
+            </Badge>
           </Dropdown>
         </div>
       </div>
@@ -467,123 +501,8 @@ export default function CalendarTablet({
         {/* Bottom Left - Shopping List */}
         <ShoppingSnapshot />
 
-        {/* Bottom Right - Quick Actions */}
-        <Card
-          style={{
-            background: 'white',
-            borderRadius: 20,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            border: 'none',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-          bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-        >
-          <h3 style={{
-            fontSize: 20,
-            fontWeight: 600,
-            color: '#1a2332',
-            marginBottom: 16,
-            flexShrink: 0
-          }}>
-            Quick Actions
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: 1, alignContent: 'start' }}>
-            <Button
-              size="large"
-              onClick={handleCreateEvent}
-              style={{
-                height: 80,
-                background: '#f0fdfa',
-                border: 'none',
-                borderRadius: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontWeight: 600,
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#2dd4bf';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f0fdfa';
-                e.currentTarget.style.color = 'inherit';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <PlusOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
-              <span style={{ fontSize: 13 }}>Add Event</span>
-            </Button>
-
-            <Button
-              size="large"
-              onClick={onNavigateToCalendar}
-              style={{
-                height: 80,
-                background: '#f0fdfa',
-                border: 'none',
-                borderRadius: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontWeight: 600,
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#2dd4bf';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f0fdfa';
-                e.currentTarget.style.color = 'inherit';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <CalendarOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
-              <span style={{ fontSize: 13 }}>Full Calendar</span>
-            </Button>
-
-            <Button
-              size="large"
-              onClick={() => navigate('/contacts')}
-              style={{
-                height: 80,
-                background: '#f0fdfa',
-                border: 'none',
-                borderRadius: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                fontWeight: 600,
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#2dd4bf';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = '#f0fdfa';
-                e.currentTarget.style.color = 'inherit';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
-            >
-              <TeamOutlined style={{ fontSize: 28, color: '#2dd4bf' }} />
-              <span style={{ fontSize: 13 }}>Contacts</span>
-            </Button>
-          </div>
-        </Card>
+        {/* Bottom Right - Todo List */}
+        <TodoSnapshot />
       </div>
 
       {/* Event Form Modal */}
@@ -593,6 +512,13 @@ export default function CalendarTablet({
         visible={formVisible}
         onClose={handleFormClose}
         onSuccess={handleFormSuccess}
+      />
+
+      {/* Nudge Notification Drawer */}
+      <NudgeInboxDrawer
+        visible={nudgeDrawerVisible}
+        onClose={() => setNudgeDrawerVisible(false)}
+        onCountChange={setNudgeCount}
       />
     </>
   );
