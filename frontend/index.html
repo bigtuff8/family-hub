@@ -5,9 +5,39 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Family Hub</title>
+    <script>
+      // Global error handler to catch any JS errors
+      window.onerror = function(message, source, lineno, colno, error) {
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="background:#1a2332;color:#fb7185;padding:40px;font-family:monospace;min-height:100vh;">' +
+            '<h1 style="color:#fbbf24;">JavaScript Error</h1>' +
+            '<p><strong>Message:</strong> ' + message + '</p>' +
+            '<p><strong>Source:</strong> ' + source + '</p>' +
+            '<p><strong>Line:</strong> ' + lineno + ', Column: ' + colno + '</p>' +
+            '<pre style="background:#2d3748;padding:20px;border-radius:8px;overflow:auto;">' + (error ? error.stack : 'No stack trace') + '</pre>' +
+            '</div>';
+        }
+        return true;
+      };
+      window.onunhandledrejection = function(event) {
+        var root = document.getElementById('root');
+        if (root) {
+          root.innerHTML = '<div style="background:#1a2332;color:#fb7185;padding:40px;font-family:monospace;min-height:100vh;">' +
+            '<h1 style="color:#fbbf24;">Unhandled Promise Rejection</h1>' +
+            '<p><strong>Reason:</strong> ' + event.reason + '</p>' +
+            '<pre style="background:#2d3748;padding:20px;border-radius:8px;overflow:auto;">' + (event.reason && event.reason.stack ? event.reason.stack : 'No stack trace') + '</pre>' +
+            '</div>';
+        }
+      };
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="background:#1a2332;color:#94a3b8;padding:40px;font-family:sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;">
+        Loading Family Hub...
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
