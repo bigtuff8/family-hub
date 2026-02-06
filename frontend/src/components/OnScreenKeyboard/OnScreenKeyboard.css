@@ -5,27 +5,30 @@
 
 .osk-container {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   background: #1e293b;
-  border-top: 1px solid #334155;
-  padding: 12px;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   z-index: 1000;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   animation: slideUp 0.2s ease;
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(100%);
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
   }
 }
 
@@ -55,20 +58,20 @@
 /* Keyboard rows */
 .osk-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
 }
 
-/* Individual keys */
+/* Individual keys - 33% wider than original */
 .osk-key {
-  min-width: 44px;
-  height: 48px;
-  padding: 0 12px;
+  min-width: 58px;
+  height: 56px;
+  padding: 0 16px;
   border: 1px solid #334155;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #0f172a;
   color: #e2e8f0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -91,10 +94,10 @@
   transform: scale(0.95);
 }
 
-/* Wide keys (Shift, Backspace) */
+/* Wide keys (Shift, Backspace) - 33% wider */
 .osk-key-wide {
-  min-width: 72px;
-  font-size: 14px;
+  min-width: 96px;
+  font-size: 16px;
 }
 
 /* Active state (for Shift toggle) */
@@ -104,16 +107,16 @@
   color: #1a2332;
 }
 
-/* Space bar */
+/* Space bar - 33% wider */
 .osk-key-space {
-  min-width: 200px;
-  font-size: 14px;
+  min-width: 266px;
+  font-size: 16px;
   color: #94a3b8;
 }
 
-/* Enter key */
+/* Enter key - 33% wider */
 .osk-key-enter {
-  min-width: 64px;
+  min-width: 85px;
   background: #2dd4bf;
   border-color: #2dd4bf;
   color: #1a2332;
@@ -132,27 +135,29 @@
 /* Responsive adjustments for smaller screens */
 @media (max-width: 600px) {
   .osk-container {
-    padding: 8px;
-    gap: 4px;
+    padding: 10px 12px;
+    gap: 6px;
+    bottom: 10px;
+    border-radius: 12px;
   }
 
   .osk-row {
-    gap: 4px;
+    gap: 5px;
   }
 
   .osk-key {
-    min-width: 32px;
-    height: 40px;
-    padding: 0 6px;
-    font-size: 16px;
+    min-width: 42px;
+    height: 48px;
+    padding: 0 8px;
+    font-size: 18px;
   }
 
   .osk-key-wide {
-    min-width: 52px;
-    font-size: 12px;
+    min-width: 70px;
+    font-size: 14px;
   }
 
   .osk-key-space {
-    min-width: 120px;
+    min-width: 160px;
   }
 }

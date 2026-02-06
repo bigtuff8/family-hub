@@ -151,17 +151,17 @@ const OnScreenKeyboard: React.FC<OnScreenKeyboardProps> = ({
         </button>
         <button
           className="osk-key"
-          onClick={() => onKeyPress(shift ? ':' : ';')}
+          onClick={() => onKeyPress('@')}
           type="button"
         >
-          {shift ? ':' : ';'}
+          @
         </button>
         <button
           className="osk-key"
-          onClick={() => onKeyPress(shift ? '"' : "'")}
+          onClick={() => onKeyPress('.')}
           type="button"
         >
-          {shift ? '"' : "'"}
+          .
         </button>
         {onEnter && (
           <button
