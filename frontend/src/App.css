@@ -22,16 +22,44 @@ input, textarea, [contenteditable="true"],
 .ant-input, .ant-input-textarea textarea {
   -webkit-user-select: text;
   user-select: text;
-  touch-action: manipulation;
+  touch-action: auto;
 }
 
 /* Ensure all scrollable containers work with touch */
 .ant-modal-wrap,
+.ant-drawer-wrapper-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 .ant-modal-body,
-.ant-drawer-body,
-.ant-card-body,
+.ant-drawer-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Modal content must allow scrolling */
+.ant-modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Form elements inside modals/drawers need pan-y for scrolling */
+.ant-modal-body .ant-form,
+.ant-drawer-body .ant-form,
+.ant-modal-body .ant-form-item,
+.ant-drawer-body .ant-form-item {
+  touch-action: pan-y;
+}
+
+/* Dropdown and select popups */
 .ant-select-dropdown,
-.ant-dropdown {
+.ant-dropdown,
+.ant-card-body {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }

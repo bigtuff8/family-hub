@@ -1,10 +1,14 @@
 """
 Admin API routes - system management endpoints.
 Includes kiosk mode control for the Pi touchscreen.
+
+NOTE: The backend runs inside Docker. To interact with the host:
+- pid: "host" in docker-compose.yml lets us see host processes (pgrep/pkill)
+- /host-autostart is bind-mounted to ~/.config/autostart on the host
+- nsenter is used to run commands in the host's namespace (for starting kiosk)
 """
 
 import subprocess
-import os
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,16 +16,19 @@ from services.auth.security import get_current_user
 
 router = APIRouter()
 
-KIOSK_SCRIPT = Path.home() / "kiosk.sh"
-AUTOSTART_DIR = Path.home() / ".config" / "autostart"
+# Paths inside the container (bind-mounted from host)
+AUTOSTART_DIR = Path("/host-autostart")
 KIOSK_DESKTOP = AUTOSTART_DIR / "kiosk.desktop"
 KIOSK_DESKTOP_DISABLED = AUTOSTART_DIR / "kiosk.desktop.disabled"
+
+# Path on the host filesystem (used with nsenter)
+HOST_KIOSK_SCRIPT = "/home/bigtuff8/kiosk.sh"
 
 KIOSK_DESKTOP_CONTENT = """[Desktop Entry]
 Type=Application
 Name=Family Hub Kiosk
 Comment=Launch Family Hub in kiosk mode
-Exec={kiosk_script}
+Exec=/home/bigtuff8/kiosk.sh
 Terminal=false
 X-GNOME-Autostart-enabled=true
 """
@@ -39,7 +46,8 @@ class KioskActionResponse(BaseModel):
 
 
 def _is_firefox_kiosk_running() -> tuple[bool, int | None]:
-    """Check if Firefox is running in kiosk mode."""
+    """Check if Firefox is running in kiosk mode.
+    Works because docker-compose has pid: host."""
     try:
         result = subprocess.run(
             ["pgrep", "-f", "firefox.*--kiosk"],
@@ -54,7 +62,8 @@ def _is_firefox_kiosk_running() -> tuple[bool, int | None]:
 
 
 def _is_autostart_enabled() -> bool:
-    """Check if kiosk autostart is enabled."""
+    """Check if kiosk autostart is enabled.
+    Works because /host-autostart is bind-mounted."""
     return KIOSK_DESKTOP.exists()
 
 
@@ -71,12 +80,13 @@ async def get_kiosk_status(current_user=Depends(get_current_user)):
 
 @router.post("/kiosk/exit", response_model=KioskActionResponse)
 async def exit_kiosk(current_user=Depends(get_current_user)):
-    """Exit kiosk mode by killing Firefox."""
+    """Exit kiosk mode by killing Firefox on the host."""
     running, pid = _is_firefox_kiosk_running()
     if not running:
         return KioskActionResponse(success=True, message="Kiosk is not running")
 
     try:
+        # pkill works directly because of pid: host
         subprocess.run(["pkill", "-f", "firefox"], timeout=10)
         return KioskActionResponse(success=True, message="Kiosk mode exited")
     except subprocess.TimeoutExpired:
@@ -87,18 +97,26 @@ async def exit_kiosk(current_user=Depends(get_current_user)):
 
 @router.post("/kiosk/start", response_model=KioskActionResponse)
 async def start_kiosk(current_user=Depends(get_current_user)):
-    """Start kiosk mode by launching the kiosk script."""
+    """Start kiosk mode by launching the kiosk script on the host.
+    Uses nsenter to execute in the host's namespace."""
     running, _ = _is_firefox_kiosk_running()
     if running:
         return KioskActionResponse(success=True, message="Kiosk is already running")
 
-    if not KIOSK_SCRIPT.exists():
-        raise HTTPException(status_code=404, detail="Kiosk script not found")
-
     try:
-        # Launch kiosk script in background (detached)
+        # Use nsenter to run the kiosk script in the host's namespace as bigtuff8
+        # --target 1: PID 1 (host init) --mount: host mount namespace
+        cmd = (
+            f"export XDG_RUNTIME_DIR=/run/user/1000 "
+            f"WAYLAND_DISPLAY=wayland-0 "
+            f"MOZ_ENABLE_WAYLAND=1; "
+            f"bash {HOST_KIOSK_SCRIPT} &"
+        )
         subprocess.Popen(
-            ["bash", str(KIOSK_SCRIPT)],
+            [
+                "nsenter", "--target", "1", "--mount", "--uts", "--ipc", "--pid",
+                "--", "su", "-", "bigtuff8", "-c", cmd
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True
@@ -122,9 +140,7 @@ async def enable_kiosk_autostart(current_user=Depends(get_current_user)):
             KIOSK_DESKTOP_DISABLED.rename(KIOSK_DESKTOP)
         else:
             # Create fresh desktop entry
-            KIOSK_DESKTOP.write_text(
-                KIOSK_DESKTOP_CONTENT.format(kiosk_script=str(KIOSK_SCRIPT))
-            )
+            KIOSK_DESKTOP.write_text(KIOSK_DESKTOP_CONTENT)
 
         return KioskActionResponse(success=True, message="Kiosk autostart enabled")
     except Exception as e:
