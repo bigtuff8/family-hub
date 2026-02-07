@@ -602,6 +602,14 @@ const CalendarEventForm: React.FC<CalendarEventFormProps> = ({
       open={visible}
       onCancel={handleCancel}
       width={700}
+      styles={{
+        body: {
+          maxHeight: '70vh',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+        }
+      }}
       footer={[
         mode === 'edit' && (
           <Popconfirm

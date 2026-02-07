@@ -13,27 +13,27 @@ export interface KioskActionResponse {
 
 export const adminApi = {
   getKioskStatus: async (): Promise<KioskStatus> => {
-    const response = await api.get('/api/v1/admin/kiosk/status');
+    const response = await api.get('/admin/kiosk/status');
     return response.data;
   },
 
   exitKiosk: async (): Promise<KioskActionResponse> => {
-    const response = await api.post('/api/v1/admin/kiosk/exit');
+    const response = await api.post('/admin/kiosk/exit');
     return response.data;
   },
 
   startKiosk: async (): Promise<KioskActionResponse> => {
-    const response = await api.post('/api/v1/admin/kiosk/start');
+    const response = await api.post('/admin/kiosk/start');
     return response.data;
   },
 
   enableKioskAutostart: async (): Promise<KioskActionResponse> => {
-    const response = await api.post('/api/v1/admin/kiosk/autostart/enable');
+    const response = await api.post('/admin/kiosk/autostart/enable');
     return response.data;
   },
 
   disableKioskAutostart: async (): Promise<KioskActionResponse> => {
-    const response = await api.post('/api/v1/admin/kiosk/autostart/disable');
+    const response = await api.post('/admin/kiosk/autostart/disable');
     return response.data;
   },
 };
