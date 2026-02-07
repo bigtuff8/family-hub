@@ -23,6 +23,7 @@ import { getInitials } from '../../utils/strings';
 import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar, syncOutlookCalendar, disconnectCalendar } from '../../services/settings';
 import { PinPad } from '../../components/PinPad';
 import { setupPin, changePin, getStoredTokens } from '../../services/auth';
+import { adminApi, KioskStatus } from '../../services/admin';
 import '../contacts/ContactsPage.css';
 import './SettingsPage.css';
 
@@ -69,6 +70,10 @@ export const SettingsPage = () => {
     // For now, we'll assume user has PIN - in a real app, this would come from user data
     const [hasPin, setHasPin] = useState(false);
 
+    // Kiosk State
+    const [kioskStatus, setKioskStatus] = useState<KioskStatus | null>(null);
+    const [kioskLoading, setKioskLoading] = useState(false);
+
     const userInitials = getInitials(user?.name) || 'U';
 
     // Check for OAuth callback
@@ -93,6 +98,62 @@ export const SettingsPage = () => {
             loadAccounts();
         }
     }, [currentView, mobileView, user, isMobile]);
+
+    // Load kiosk status when viewing system section
+    useEffect(() => {
+        const activeView = isMobile ? mobileView : currentView;
+        if (activeView === 'system') {
+            loadKioskStatus();
+        }
+    }, [currentView, mobileView, isMobile]);
+
+    const loadKioskStatus = async () => {
+        try {
+            const status = await adminApi.getKioskStatus();
+            setKioskStatus(status);
+        } catch {
+            // Silent fail - kiosk controls just won't show status
+        }
+    };
+
+    const handleKioskToggle = async () => {
+        if (!kioskStatus) return;
+        setKioskLoading(true);
+        try {
+            if (kioskStatus.running) {
+                const result = await adminApi.exitKiosk();
+                message.success(result.message);
+            } else {
+                const result = await adminApi.startKiosk();
+                message.success(result.message);
+            }
+            // Refresh status after a short delay
+            setTimeout(loadKioskStatus, 2000);
+        } catch {
+            message.error('Failed to toggle kiosk mode');
+        } finally {
+            setKioskLoading(false);
+        }
+    };
+
+    const handleAutostartToggle = async () => {
+        if (!kioskStatus) return;
+        setKioskLoading(true);
+        try {
+            if (kioskStatus.autostart_enabled) {
+                const result = await adminApi.disableKioskAutostart();
+                message.success(result.message);
+            } else {
+                const result = await adminApi.enableKioskAutostart();
+                message.success(result.message);
+            }
+            await loadKioskStatus();
+        } catch {
+            message.error('Failed to toggle autostart');
+        } finally {
+            setKioskLoading(false);
+        }
+    };
 
     const loadAccounts = async () => {
         if (!user) return;
@@ -663,6 +724,59 @@ export const SettingsPage = () => {
 
     const renderSystemContent = () => (
         <div className="settings-detail-content">
+            {/* Kiosk Mode Controls */}
+            <div className="settings-section">
+                <div className="settings-section-title">Kiosk Mode</div>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 16, fontSize: 13 }}>
+                    Kiosk mode runs Family Hub fullscreen on the touchscreen. Use these controls to manage it.
+                </Text>
+
+                <div className="settings-detail-item">
+                    <div className="settings-detail-item-content">
+                        <div className="settings-detail-item-title">Kiosk Status</div>
+                        <div className="settings-detail-item-value">
+                            {kioskStatus === null ? 'Checking...' :
+                             kioskStatus.running ? 'Running (fullscreen)' : 'Not running'}
+                        </div>
+                    </div>
+                    <span className={`status-badge ${kioskStatus?.running ? 'connected' : ''}`}
+                          style={!kioskStatus?.running ? { background: '#f1f5f9', color: '#64748b' } : {}}>
+                        {kioskStatus?.running ? 'Active' : 'Inactive'}
+                    </span>
+                </div>
+
+                <div className="settings-detail-item" onClick={handleKioskToggle} style={{ cursor: 'pointer' }}>
+                    <div className="settings-detail-item-content">
+                        <div className="settings-detail-item-title">
+                            {kioskStatus?.running ? 'Exit Kiosk Mode' : 'Enter Kiosk Mode'}
+                        </div>
+                        <div className="settings-detail-item-value">
+                            {kioskStatus?.running
+                                ? 'Close fullscreen and show desktop'
+                                : 'Launch Family Hub in fullscreen'}
+                        </div>
+                    </div>
+                    <Button
+                        type={kioskStatus?.running ? 'default' : 'primary'}
+                        danger={kioskStatus?.running}
+                        loading={kioskLoading}
+                        size="small"
+                    >
+                        {kioskStatus?.running ? 'Exit' : 'Start'}
+                    </Button>
+                </div>
+
+                <div className="settings-detail-item" onClick={handleAutostartToggle} style={{ cursor: 'pointer' }}>
+                    <div className="settings-detail-item-content">
+                        <div className="settings-detail-item-title">Start on Boot</div>
+                        <div className="settings-detail-item-value">
+                            Automatically launch kiosk mode when Pi starts up
+                        </div>
+                    </div>
+                    <div className={`toggle-switch ${kioskStatus?.autostart_enabled ? 'active' : ''}`} />
+                </div>
+            </div>
+
             <div className="settings-section">
                 <div className="settings-section-title">Display</div>
 

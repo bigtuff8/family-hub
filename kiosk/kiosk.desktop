@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Family Hub Kiosk
+Comment=Launch Family Hub in kiosk mode
+Exec=/home/bigtuff8/kiosk.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

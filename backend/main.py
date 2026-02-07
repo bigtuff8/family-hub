@@ -22,6 +22,7 @@ from services.auth.routes import router as auth_router
 from services.shopping.routes import router as shopping_router
 from services.contacts.routes import router as contacts_router
 from services.tasks.routes import router as tasks_router
+from services.admin.routes import router as admin_router
 
 load_dotenv()
 
@@ -120,6 +121,12 @@ app.include_router(
     tasks_router,
     prefix="/api/v1/tasks",
     tags=["Tasks"]
+)
+
+app.include_router(
+    admin_router,
+    prefix="/api/v1/admin",
+    tags=["Admin"]
 )
 
 # Add more routers here as you build them
