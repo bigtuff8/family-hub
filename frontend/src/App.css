@@ -6,4 +6,38 @@
 
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Touchscreen: disable double-tap zoom, make touch responsive */
+  touch-action: manipulation;
+}
+
+/* Touchscreen: prevent text selection on drag (allows scrolling instead) */
+/* Apply to all non-input elements */
+*:not(input):not(textarea):not([contenteditable="true"]) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Re-enable text selection for elements that need it */
+input, textarea, [contenteditable="true"],
+.ant-input, .ant-input-textarea textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+/* Ensure all scrollable containers work with touch */
+.ant-modal-wrap,
+.ant-modal-body,
+.ant-drawer-body,
+.ant-card-body,
+.ant-select-dropdown,
+.ant-dropdown {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Dashboard grid scrollable areas */
+.dashboard-grid .ant-card-body > div {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
