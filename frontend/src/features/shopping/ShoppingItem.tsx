@@ -4,7 +4,7 @@
  */
 
 import { Checkbox, Typography, Button, Space, Popconfirm } from 'antd';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, SoundOutlined } from '@ant-design/icons';
 import type { ShoppingItem as ShoppingItemType } from '../../types/shopping';
 import './ShoppingItem.css';
 
@@ -40,6 +40,12 @@ export function ShoppingItem({ item, onToggle, onEdit, onDelete }: Props) {
         >
           {item.name}
         </Text>
+        {item.source === 'alexa' && (
+          <SoundOutlined
+            style={{ fontSize: 12, color: '#00caff', marginRight: 4 }}
+            title="Added via Alexa"
+          />
+        )}
         <Text type="secondary" className="item-quantity">
           {formatQuantity()}
         </Text>

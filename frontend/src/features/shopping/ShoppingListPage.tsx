@@ -69,6 +69,8 @@ export function ShoppingListPage() {
   useEffect(() => {
     fetchList();
     fetchCategories();
+    const interval = setInterval(fetchList, 30000);
+    return () => clearInterval(interval);
   }, [fetchList, fetchCategories]);
 
   const handleAddItem = async (name: string, quantity?: number, unit?: string, forceAdd = false) => {

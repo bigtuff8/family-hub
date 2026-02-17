@@ -13,14 +13,18 @@ import {
     LeftOutlined,
     GoogleOutlined,
     SyncOutlined,
+    SoundOutlined,
     RightOutlined
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import { useAuth } from '../auth';
 import WeatherWidget from '../../components/WeatherWidget';
 import { getInitials } from '../../utils/strings';
 import { getConnectedAccounts, ConnectedAccount, syncGoogleCalendar, syncOutlookCalendar, disconnectCalendar } from '../../services/settings';
+import { shoppingApi, AlexaSyncStatus } from '../../services/shopping';
 import { PinPad } from '../../components/PinPad';
 import { setupPin, changePin, getStoredTokens } from '../../services/auth';
 import { adminApi, KioskStatus } from '../../services/admin';
@@ -74,6 +78,9 @@ export const SettingsPage = () => {
     const [kioskStatus, setKioskStatus] = useState<KioskStatus | null>(null);
     const [kioskLoading, setKioskLoading] = useState(false);
 
+    // Alexa Sync State
+    const [alexaSyncStatus, setAlexaSyncStatus] = useState<AlexaSyncStatus | null>(null);
+
     const userInitials = getInitials(user?.name) || 'U';
 
     // Check for OAuth callback
@@ -96,6 +103,7 @@ export const SettingsPage = () => {
         const activeView = isMobile ? mobileView : currentView;
         if (activeView === 'accounts' && user) {
             loadAccounts();
+            loadAlexaSyncStatus();
         }
     }, [currentView, mobileView, user, isMobile]);
 
@@ -165,6 +173,15 @@ export const SettingsPage = () => {
             console.log('Could not load accounts', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadAlexaSyncStatus = async () => {
+        try {
+            const status = await shoppingApi.getAlexaSyncStatus();
+            setAlexaSyncStatus(status);
+        } catch {
+            // Silent fail
         }
     };
 
@@ -365,7 +382,7 @@ export const SettingsPage = () => {
             key: 'accounts',
             icon: <GlobalOutlined />,
             title: 'Connected Accounts',
-            subtitle: 'Google Calendar, Outlook sync',
+            subtitle: 'Google Calendar, Outlook, Alexa',
             color: 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
         },
         {
@@ -583,6 +600,66 @@ export const SettingsPage = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Alexa Shopping Sync */}
+                <div className="settings-section">
+                    <div className="settings-section-title">Alexa Shopping Sync</div>
+
+                    <div className="settings-detail-item">
+                        <div className="service-icon" style={{ background: '#00caff', color: '#fff' }}>
+                            <SoundOutlined />
+                        </div>
+                        <div className="settings-detail-item-content">
+                            <div className="settings-detail-item-title">Amazon Alexa</div>
+                            <div className="settings-detail-item-value">
+                                {!alexaSyncStatus || alexaSyncStatus.cookie_status === 'not_configured'
+                                    ? 'Not configured'
+                                    : alexaSyncStatus.cookie_status === 'expired'
+                                    ? 'Cookies expired - re-authentication needed'
+                                    : alexaSyncStatus.last_sync_status === 'success'
+                                    ? `Last sync: ${alexaSyncStatus.last_sync_at ? dayjs(alexaSyncStatus.last_sync_at).fromNow() : 'never'}`
+                                    : alexaSyncStatus.last_sync_error || 'Sync error'}
+                            </div>
+                        </div>
+                        <span className={`status-badge ${
+                            alexaSyncStatus?.cookie_status === 'valid' && alexaSyncStatus?.last_sync_status === 'success'
+                                ? 'connected'
+                                : ''
+                        }`} style={
+                            !alexaSyncStatus || alexaSyncStatus.cookie_status !== 'valid' || alexaSyncStatus.last_sync_status !== 'success'
+                                ? { background: '#f1f5f9', color: '#64748b' }
+                                : {}
+                        }>
+                            {alexaSyncStatus?.cookie_status === 'valid' && alexaSyncStatus?.last_sync_status === 'success'
+                                ? 'Connected'
+                                : alexaSyncStatus?.cookie_status === 'expired'
+                                ? 'Expired'
+                                : 'Inactive'}
+                        </span>
+                    </div>
+
+                    {alexaSyncStatus && alexaSyncStatus.cookie_status === 'valid' && (
+                        <div className="settings-detail-item">
+                            <div className="settings-detail-item-content">
+                                <div className="settings-detail-item-title">Items Synced</div>
+                                <div className="settings-detail-item-value">
+                                    {alexaSyncStatus.items_imported_total} imported, {alexaSyncStatus.items_exported_total} exported
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="settings-detail-item">
+                        <div className="settings-detail-item-content">
+                            <div className="settings-detail-item-title">Sync Direction</div>
+                            <div className="settings-detail-item-value">
+                                {alexaSyncStatus?.sync_direction === 'bidirectional' ? 'Bidirectional' :
+                                 alexaSyncStatus?.sync_direction === 'import_only' ? 'Import only' :
+                                 alexaSyncStatus?.sync_direction === 'export_only' ? 'Export only' : 'Bidirectional'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Disconnect Confirmation Modal */}
                 <Modal

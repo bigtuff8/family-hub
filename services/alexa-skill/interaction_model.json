@@ -1,0 +1,87 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "family hub",
+      "intents": [
+        {
+          "name": "AddShoppingItemIntent",
+          "slots": [
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            },
+            {
+              "name": "quantity",
+              "type": "AMAZON.NUMBER"
+            }
+          ],
+          "samples": [
+            "add {item}",
+            "add {item} to the list",
+            "add {item} to the shopping list",
+            "add {item} to my list",
+            "put {item} on the list",
+            "put {item} on the shopping list",
+            "I need {item}",
+            "we need {item}",
+            "add {quantity} {item}",
+            "add {quantity} {item} to the list",
+            "put {quantity} {item} on the list",
+            "I need {quantity} {item}",
+            "we need {quantity} {item}"
+          ]
+        },
+        {
+          "name": "RemoveShoppingItemIntent",
+          "slots": [
+            {
+              "name": "item",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "remove {item}",
+            "remove {item} from the list",
+            "remove {item} from the shopping list",
+            "delete {item}",
+            "delete {item} from the list",
+            "take {item} off the list",
+            "cross off {item}"
+          ]
+        },
+        {
+          "name": "GetShoppingListIntent",
+          "slots": [],
+          "samples": [
+            "what's on the shopping list",
+            "what's on the list",
+            "what's on my list",
+            "what do we need",
+            "what do I need",
+            "read the shopping list",
+            "read the list",
+            "what items are on the list",
+            "tell me what's on the list",
+            "shopping list"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ]
+    }
+  }
+}

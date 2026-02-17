@@ -799,3 +799,49 @@ class ContactConflict(Base):
     __table_args__ = (
         Index('idx_contact_conflicts_tenant', 'tenant_id', 'status'),
     )
+
+
+# =============================================================================
+# PHASE 2: ALEXA INTEGRATION MODELS
+# =============================================================================
+
+
+class ApiKey(Base):
+    """Service-to-service API keys for integrations (Alexa sync, Lambda, etc.)"""
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    name = Column(String(100), nullable=False)  # "alexa-sync", "alexa-skill"
+    key_hash = Column(String(255), nullable=False)  # bcrypt hash
+    key_prefix = Column(String(12), nullable=False)  # First chars for identification (e.g. "fh_ak_a1b2")
+    scopes = Column(JSONB, default=list)  # ["shopping:read", "shopping:write"]
+    is_active = Column(Boolean, default=True)
+    last_used_at = Column(DateTime(timezone=True))
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True))  # Optional expiry
+
+    __table_args__ = (
+        Index('idx_api_keys_tenant', 'tenant_id'),
+        Index('idx_api_keys_prefix', 'key_prefix'),
+    )
+
+
+class AlexaSyncState(Base):
+    """Tracks Alexa shopping list sync state per tenant"""
+    __tablename__ = "alexa_sync_state"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False, unique=True)
+    is_enabled = Column(Boolean, default=False)
+    sync_direction = Column(String(50), default='bidirectional')  # 'bidirectional', 'import_only', 'export_only'
+    last_sync_at = Column(DateTime(timezone=True))
+    last_sync_status = Column(String(50))  # 'success', 'failed', 'cookie_expired'
+    last_sync_error = Column(Text)
+    items_imported_total = Column(Integer, default=0)
+    items_exported_total = Column(Integer, default=0)
+    cookie_status = Column(String(50), default='not_configured')  # 'valid', 'expired', 'not_configured'
+    cookie_expires_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

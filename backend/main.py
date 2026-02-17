@@ -20,6 +20,7 @@ from services.calendar.jobs import sync_all_calendars
 from services.calendar.routes import router as calendar_router
 from services.auth.routes import router as auth_router
 from services.shopping.routes import router as shopping_router
+from services.shopping.service_routes import router as shopping_service_router
 from services.contacts.routes import router as contacts_router
 from services.tasks.routes import router as tasks_router
 from services.admin.routes import router as admin_router
@@ -109,6 +110,12 @@ app.include_router(
     shopping_router,
     prefix="/api/v1/shopping",
     tags=["Shopping"]
+)
+
+app.include_router(
+    shopping_service_router,
+    prefix="/api/v1/shopping",
+    tags=["Shopping Service"]
 )
 
 app.include_router(

@@ -128,4 +128,21 @@ export const shoppingApi = {
     const response = await api.delete(`/shopping/categories/${categoryId}/keywords/${encodeURIComponent(keyword)}`);
     return response.data;
   },
+
+  // Get Alexa sync status
+  getAlexaSyncStatus: async (): Promise<AlexaSyncStatus> => {
+    const response = await api.get('/shopping/alexa-sync-status');
+    return response.data;
+  },
 };
+
+export interface AlexaSyncStatus {
+  is_enabled: boolean;
+  sync_direction: string;
+  last_sync_at: string | null;
+  last_sync_status: string | null;
+  last_sync_error: string | null;
+  items_imported_total: number;
+  items_exported_total: number;
+  cookie_status: string;
+}

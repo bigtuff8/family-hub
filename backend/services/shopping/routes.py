@@ -502,3 +502,43 @@ async def remove_keyword(
 
     updated_category = await crud.remove_keyword_from_category(db, category, keyword)
     return updated_category
+
+
+# ============ Alexa Sync Status (User-facing) ============
+
+@router.get("/alexa-sync-status")
+async def get_alexa_sync_status(
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get Alexa sync status for display in Settings."""
+    from sqlalchemy import select
+    from shared.models import AlexaSyncState
+
+    result = await db.execute(
+        select(AlexaSyncState).where(AlexaSyncState.tenant_id == tenant_id)
+    )
+    state = result.scalar_one_or_none()
+
+    if not state:
+        return {
+            "is_enabled": False,
+            "sync_direction": "bidirectional",
+            "last_sync_at": None,
+            "last_sync_status": None,
+            "last_sync_error": None,
+            "items_imported_total": 0,
+            "items_exported_total": 0,
+            "cookie_status": "not_configured",
+        }
+
+    return {
+        "is_enabled": state.is_enabled,
+        "sync_direction": state.sync_direction,
+        "last_sync_at": state.last_sync_at.isoformat() if state.last_sync_at else None,
+        "last_sync_status": state.last_sync_status,
+        "last_sync_error": state.last_sync_error,
+        "items_imported_total": state.items_imported_total or 0,
+        "items_exported_total": state.items_exported_total or 0,
+        "cookie_status": state.cookie_status or "not_configured",
+    }

@@ -83,7 +83,27 @@ services:
     depends_on:
       - backend
 
+  # Alexa Shopping List Sync Service
+  alexa-sync:
+    build:
+      context: ./services/alexa-sync
+      dockerfile: Dockerfile
+    container_name: familyhub-alexa-sync
+    environment:
+      FAMILYHUB_API_URL: http://backend:8000
+      FAMILYHUB_API_KEY: ${ALEXA_SYNC_API_KEY:-}
+      POLL_INTERVAL_MINUTES: "5"
+      SYNC_DIRECTION: bidirectional
+      AMAZON_DOMAIN: www.amazon.co.uk
+      LOG_LEVEL: INFO
+    volumes:
+      - alexa_sync_data:/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  alexa_sync_data:

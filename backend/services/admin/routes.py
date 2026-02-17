@@ -10,9 +10,18 @@ NOTE: The backend runs inside Docker. To interact with the host:
 
 import subprocess
 from pathlib import Path
+from typing import Optional
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy import select, delete
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from services.auth.security import get_current_user
+from services.auth.api_key import generate_api_key
+from shared.database import get_db
+from shared.models import ApiKey
 
 router = APIRouter()
 
@@ -158,3 +167,123 @@ async def disable_kiosk_autostart(current_user=Depends(get_current_user)):
         return KioskActionResponse(success=True, message="Kiosk autostart disabled")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to disable autostart: {str(e)}")
+
+
+# =============================================================================
+# API Key Management
+# =============================================================================
+
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    scopes: list[str] = Field(default=["shopping:read", "shopping:write"])
+
+
+class ApiKeyCreateResponse(BaseModel):
+    id: str
+    name: str
+    key: str  # Plaintext key - shown ONCE
+    key_prefix: str
+    scopes: list[str]
+    message: str = "Save this key now - it cannot be retrieved again."
+
+    class Config:
+        from_attributes = True
+
+
+class ApiKeyListItem(BaseModel):
+    id: str
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    is_active: bool
+    last_used_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/api-keys", response_model=ApiKeyCreateResponse)
+async def create_api_key(
+    request: ApiKeyCreateRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate a new API key. Returns the plaintext key once - store it safely."""
+    # Only admins can create API keys
+    if current_user.role not in ("admin", "parent"):
+        raise HTTPException(status_code=403, detail="Only admins can create API keys")
+
+    plaintext_key, key_hash, key_prefix = generate_api_key(request.name)
+
+    api_key = ApiKey(
+        tenant_id=current_user.tenant_id,
+        name=request.name,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        scopes=request.scopes,
+        created_by=current_user.id,
+    )
+    db.add(api_key)
+    await db.commit()
+    await db.refresh(api_key)
+
+    return ApiKeyCreateResponse(
+        id=str(api_key.id),
+        name=api_key.name,
+        key=plaintext_key,
+        key_prefix=key_prefix,
+        scopes=api_key.scopes,
+    )
+
+
+@router.get("/api-keys")
+async def list_api_keys(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all API keys for the tenant (without the actual key values)."""
+    result = await db.execute(
+        select(ApiKey)
+        .where(ApiKey.tenant_id == current_user.tenant_id)
+        .order_by(ApiKey.created_at.desc())
+    )
+    keys = result.scalars().all()
+
+    return [
+        ApiKeyListItem(
+            id=str(k.id),
+            name=k.name,
+            key_prefix=k.key_prefix,
+            scopes=k.scopes or [],
+            is_active=k.is_active,
+            last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,
+            created_at=k.created_at.isoformat() if k.created_at else None,
+        )
+        for k in keys
+    ]
+
+
+@router.delete("/api-keys/{key_id}")
+async def revoke_api_key(
+    key_id: UUID,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Revoke (delete) an API key."""
+    result = await db.execute(
+        select(ApiKey).where(
+            ApiKey.id == key_id,
+            ApiKey.tenant_id == current_user.tenant_id
+        )
+    )
+    key = result.scalar_one_or_none()
+
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    await db.execute(delete(ApiKey).where(ApiKey.id == key_id))
+    await db.commit()
+
+    return {"success": True, "message": f"API key '{key.name}' revoked"}

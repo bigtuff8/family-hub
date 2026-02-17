@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, Checkbox, Button, Input, Spin, Empty, Badge, message } from 'antd';
-import { ShoppingCartOutlined, PlusOutlined, RightOutlined, EditOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, PlusOutlined, RightOutlined, EditOutlined, SoundOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { shoppingApi } from '../../services/shopping';
 import { EditItemModal } from './EditItemModal';
@@ -40,6 +40,8 @@ export function ShoppingSnapshot() {
 
   useEffect(() => {
     fetchList();
+    const interval = setInterval(fetchList, 30000);
+    return () => clearInterval(interval);
   }, [fetchList]);
 
   const handleToggle = async (item: ShoppingItem) => {
@@ -156,6 +158,12 @@ export function ShoppingSnapshot() {
               <span className="item-name" onClick={() => setEditingItem(item)}>
                 {item.name}
               </span>
+              {item.source === 'alexa' && (
+                <SoundOutlined
+                  style={{ fontSize: 11, color: '#00caff', marginRight: 2 }}
+                  title="Added via Alexa"
+                />
+              )}
               {item.quantity && Number(item.quantity) > 1 && (
                 <Badge
                   count={`x${Number(item.quantity)}`}
