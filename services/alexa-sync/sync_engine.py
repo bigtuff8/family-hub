@@ -153,5 +153,8 @@ class SyncEngine:
 
         for name_normalized, amazon_item in amazon_names.items():
             if name_normalized in checked_names:
-                await self.amazon.delete_item(amazon_item["itemId"])
+                await self.amazon.delete_item(
+                    amazon_item["itemId"],
+                    version=amazon_item.get("version", 1),
+                )
                 logger.info(f"Removed checked item from Amazon: {amazon_item['value']}")

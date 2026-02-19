@@ -34,3 +34,7 @@ Thumbs.db*.bak
 
 # Logs
 backend_logs.txt
+
+# Amazon cookies (sensitive session data)
+**/cookies-*.json
+**/amazon_cookies.json
