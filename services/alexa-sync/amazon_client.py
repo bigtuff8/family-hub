@@ -35,6 +35,9 @@ class AmazonClient:
 
     def __init__(self, domain: str, cookie_manager: CookieManager):
         self.domain = domain
+        # Derive base domain (amazon.co.uk) and alexa domain (alexa.amazon.co.uk)
+        self.base_domain = domain.removeprefix("www.")
+        self.alexa_domain = f"alexa.{self.base_domain}"
         self.cookie_manager = cookie_manager
         self._playwright = None
         self._browser: Optional[Browser] = None
@@ -106,7 +109,7 @@ class AmazonClient:
             playwright_cookies.append({
                 "name": name,
                 "value": str(value),
-                "domain": ".amazon.co.uk",
+                "domain": f".{self.base_domain}",
                 "path": "/",
                 "secure": name in (
                     "at-acbuk", "sess-at-acbuk", "sst-acbuk",
@@ -132,7 +135,7 @@ class AmazonClient:
             # Navigate to the Alexa SPA - this works with our cookies
             logger.info("Navigating to Alexa web app...")
             response = await self._page.goto(
-                f"https://alexa.{self.domain}/spa/index.html",
+                f"https://{self.alexa_domain}/spa/index.html",
                 wait_until="domcontentloaded",
                 timeout=30000,
             )
@@ -267,7 +270,7 @@ class AmazonClient:
         try:
             logger.info("Trying page navigation fallback for list ID...")
             await self._page.goto(
-                f"https://alexa.{self.domain}/spa/index.html#/shopping/lists",
+                f"https://{self.alexa_domain}/spa/index.html#/shopping/lists",
                 wait_until="domcontentloaded",
                 timeout=30000,
             )
@@ -353,7 +356,7 @@ class AmazonClient:
         try:
             logger.info("Trying DOM scraping fallback for items...")
             await self._page.goto(
-                f"https://alexa.{self.domain}/spa/index.html#/shopping/lists",
+                f"https://{self.alexa_domain}/spa/index.html#/shopping/lists",
                 wait_until="domcontentloaded",
                 timeout=30000,
             )
