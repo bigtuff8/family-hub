@@ -33,12 +33,13 @@ BROWSER_STATE_FILE = "/data/browser_state.json"
 class AmazonClient:
     """Browser-based client for Amazon's Alexa shopping list."""
 
-    def __init__(self, domain: str, cookie_manager: CookieManager):
+    def __init__(self, domain: str, cookie_manager: CookieManager, password: str = ""):
         self.domain = domain
         # Derive base domain (amazon.co.uk) and alexa domain (alexa.amazon.co.uk)
         self.base_domain = domain.removeprefix("www.")
         self.alexa_domain = f"alexa.{self.base_domain}"
         self.cookie_manager = cookie_manager
+        self._password = password
         self._playwright = None
         self._browser: Optional[Browser] = None
         self._context: Optional[BrowserContext] = None
@@ -184,7 +185,6 @@ class AmazonClient:
             logger.info(f"Alexa session OK: {auth_check.get('email')}")
 
             # Step 2: Navigate to shopping list page on www.amazon.co.uk
-            # The browser handles the auth redirect flow automatically
             logger.info("Step 2: Navigating to shopping list page...")
             await self._page.goto(
                 f"https://{self.domain}/alexaquantum/sp/alexaShoppingList",
@@ -192,44 +192,133 @@ class AmazonClient:
                 timeout=60000,
             )
 
-            # Wait for JS auth redirects to complete
-            await self._page.wait_for_timeout(5000)
-
+            await self._page.wait_for_timeout(3000)
             final_url = self._page.url
-            logger.info(f"Final URL after navigation: {final_url}")
+            logger.info(f"URL after navigation: {final_url}")
 
-            # Check if we ended up on the shopping list page
-            if "alexaquantum" in final_url or "alexashoppinglists" in final_url:
-                logger.info("Successfully landed on shopping list page")
+            # Check if we landed on sign-in page
+            if "signin" in final_url or "ap/signin" in final_url:
+                logger.info("Redirected to sign-in - attempting auto-login...")
+                signed_in = await self._handle_signin()
+                if not signed_in:
+                    return False
+
+            # Check if we need to handle 2FA/OTP
+            current_url = self._page.url
+            if "mfa" in current_url or "otp" in current_url or "verification" in current_url:
+                logger.error("2FA/OTP required - cannot proceed automatically")
+                logger.error("Please disable 2FA or add OTP handling")
+                return False
+
+            # Verify we're on the shopping list page
+            current_url = self._page.url
+            if "alexaquantum" in current_url or "alexashoppinglists" in current_url:
+                logger.info("Successfully on shopping list page!")
                 self._authenticated = True
                 await self._save_state()
                 return True
 
-            # If we're still on a sign-in page, try to wait longer
-            if "signin" in final_url or "ap/signin" in final_url:
-                logger.info("On sign-in page - waiting for auto-auth...")
-                try:
-                    await self._page.wait_for_url(
-                        "**/alexaquantum/**",
-                        timeout=15000,
-                    )
-                    logger.info("Auto-auth succeeded!")
-                    self._authenticated = True
-                    await self._save_state()
-                    return True
-                except Exception:
-                    logger.error("Auto-auth failed - stuck on sign-in page")
-                    return False
-
-            # We might have landed on any Amazon page - that's OK as long as
-            # we're authenticated. Check by testing a simple fetch.
-            logger.info(f"Landed on: {final_url} - checking if API works...")
+            # We might have landed elsewhere after sign-in
+            logger.info(f"Landed on: {current_url} - testing API access...")
             self._authenticated = True
             await self._save_state()
             return True
 
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
+            return False
+
+    async def _handle_signin(self) -> bool:
+        """
+        Handle Amazon sign-in page by entering password.
+
+        Amazon's sign-in page (when redirected from shopping list) shows
+        the user's name/email and asks for password re-entry. The page
+        uses max_auth_age=3600 meaning a recent password entry is required.
+
+        Selectors:
+        - Password field: #ap_password
+        - Submit button: #signInSubmit
+        - OTP field: #auth-mfa-otpcode (if 2FA enabled)
+        """
+        if not self._password:
+            logger.error("AMAZON_PASSWORD not configured - cannot auto-sign-in")
+            logger.error("Set AMAZON_PASSWORD in your .env file on the Pi")
+            return False
+
+        try:
+            # Wait for the password field to appear
+            logger.info("Waiting for sign-in form...")
+            await self._page.wait_for_selector("#ap_password", timeout=10000)
+
+            # Fill in the password
+            await self._page.fill("#ap_password", self._password)
+            logger.info("Password entered")
+
+            # Check if "Remember me" checkbox exists and tick it
+            remember_me = await self._page.query_selector('input[name="rememberMe"]')
+            if remember_me:
+                await remember_me.check()
+                logger.info("Checked 'Remember me'")
+
+            # Click sign-in button
+            await self._page.click("#signInSubmit")
+            logger.info("Clicked sign-in button, waiting for navigation...")
+
+            # Wait for navigation after sign-in
+            await self._page.wait_for_load_state("domcontentloaded", timeout=30000)
+            await self._page.wait_for_timeout(3000)
+
+            current_url = self._page.url
+
+            # Check for 2FA/OTP challenge
+            if "mfa" in current_url or "otp" in current_url or "verification" in current_url:
+                logger.error("2FA/MFA challenge detected - cannot proceed automatically")
+                logger.error("Consider disabling 2FA on your Amazon account, or use app-based auth")
+                return False
+
+            # Check for CAPTCHA
+            captcha = await self._page.query_selector("#auth-captcha-image")
+            if captcha:
+                logger.error("CAPTCHA challenge detected - cannot proceed automatically")
+                return False
+
+            # Check for wrong password
+            error_box = await self._page.query_selector("#auth-error-message-box")
+            if error_box:
+                error_text = await error_box.inner_text()
+                logger.error(f"Sign-in error: {error_text}")
+                return False
+
+            # Check if we're still on sign-in page
+            if "signin" in current_url or "ap/signin" in current_url:
+                # Could be another challenge page
+                page_title = await self._page.title()
+                logger.error(f"Still on sign-in page after submit. Title: {page_title}, URL: {current_url}")
+                return False
+
+            logger.info(f"Sign-in successful! Now at: {current_url}")
+
+            # If we didn't land on the shopping list page, navigate there
+            if "alexaquantum" not in current_url and "alexashoppinglists" not in current_url:
+                logger.info("Navigating to shopping list page after sign-in...")
+                await self._page.goto(
+                    f"https://{self.domain}/alexaquantum/sp/alexaShoppingList",
+                    wait_until="domcontentloaded",
+                    timeout=30000,
+                )
+                await self._page.wait_for_timeout(2000)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Sign-in failed: {e}")
+            # Take a screenshot for debugging
+            try:
+                await self._page.screenshot(path="/data/signin-error.png")
+                logger.info("Saved error screenshot to /data/signin-error.png")
+            except Exception:
+                pass
             return False
 
     async def _save_state(self):

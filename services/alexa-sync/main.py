@@ -30,7 +30,7 @@ logger = logging.getLogger("alexa-sync")
 
 # Initialize clients
 cookie_manager = CookieManager(config.AMAZON_COOKIES_FILE)
-amazon_client = AmazonClient(config.AMAZON_DOMAIN, cookie_manager)
+amazon_client = AmazonClient(config.AMAZON_DOMAIN, cookie_manager, config.AMAZON_PASSWORD)
 fh_client = FamilyHubClient(config.FAMILYHUB_API_URL, config.FAMILYHUB_API_KEY)
 sync_engine = SyncEngine(amazon_client, fh_client, config.SYNC_DIRECTION)
 

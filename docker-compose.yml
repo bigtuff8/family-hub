@@ -95,6 +95,7 @@ services:
       POLL_INTERVAL_MINUTES: "5"
       SYNC_DIRECTION: bidirectional
       AMAZON_DOMAIN: www.amazon.co.uk
+      AMAZON_PASSWORD: ${AMAZON_PASSWORD:-}
       LOG_LEVEL: INFO
     volumes:
       - alexa_sync_data:/data
