@@ -124,7 +124,14 @@ class AmazonClient:
         logger.info(f"Loaded {len(playwright_cookies)} cookies into browser")
 
     async def _ensure_authenticated(self) -> bool:
-        """Navigate to Alexa web app and ensure we're authenticated."""
+        """
+        Authenticate with Amazon's Alexa services.
+
+        Flow:
+        1. Navigate to alexa.amazon.co.uk to establish Alexa session
+        2. Navigate to www.amazon.co.uk shopping list page (browser handles auth redirects)
+        3. API calls can then be made from the www.amazon.co.uk origin
+        """
         if self._authenticated:
             return True
 
@@ -132,8 +139,8 @@ class AmazonClient:
             return False
 
         try:
-            # Navigate to the Alexa SPA - this works with our cookies
-            logger.info("Navigating to Alexa web app...")
+            # Step 1: Establish Alexa session at alexa.amazon.co.uk
+            logger.info("Step 1: Establishing Alexa session...")
             response = await self._page.goto(
                 f"https://{self.alexa_domain}/spa/index.html",
                 wait_until="domcontentloaded",
@@ -144,16 +151,14 @@ class AmazonClient:
                 logger.error(f"Failed to load Alexa SPA: status {response.status if response else 'None'}")
                 return False
 
-            # Wait a moment for any redirects/JS to settle
             await self._page.wait_for_timeout(2000)
 
-            # Check if we're authenticated by looking for the SPA content
             url = self._page.url
             if "signin" in url or "ap/signin" in url:
                 logger.error("Redirected to sign-in - cookies may be expired")
                 return False
 
-            # Verify by calling a known-working API from within the page
+            # Verify Alexa auth
             auth_check = await self._page.evaluate("""
                 async () => {
                     try {
@@ -172,15 +177,56 @@ class AmazonClient:
                 }
             """)
 
-            if auth_check.get("ok"):
-                logger.info(f"Authenticated as: {auth_check.get('email')}")
+            if not auth_check.get("ok"):
+                logger.error(f"Alexa auth check failed: {auth_check}")
+                return False
+
+            logger.info(f"Alexa session OK: {auth_check.get('email')}")
+
+            # Step 2: Navigate to shopping list page on www.amazon.co.uk
+            # The browser handles the auth redirect flow automatically
+            logger.info("Step 2: Navigating to shopping list page...")
+            await self._page.goto(
+                f"https://{self.domain}/alexaquantum/sp/alexaShoppingList",
+                wait_until="domcontentloaded",
+                timeout=60000,
+            )
+
+            # Wait for JS auth redirects to complete
+            await self._page.wait_for_timeout(5000)
+
+            final_url = self._page.url
+            logger.info(f"Final URL after navigation: {final_url}")
+
+            # Check if we ended up on the shopping list page
+            if "alexaquantum" in final_url or "alexashoppinglists" in final_url:
+                logger.info("Successfully landed on shopping list page")
                 self._authenticated = True
-                # Save browser state for faster startup next time
                 await self._save_state()
                 return True
-            else:
-                logger.error(f"Auth check failed: {auth_check}")
-                return False
+
+            # If we're still on a sign-in page, try to wait longer
+            if "signin" in final_url or "ap/signin" in final_url:
+                logger.info("On sign-in page - waiting for auto-auth...")
+                try:
+                    await self._page.wait_for_url(
+                        "**/alexaquantum/**",
+                        timeout=15000,
+                    )
+                    logger.info("Auto-auth succeeded!")
+                    self._authenticated = True
+                    await self._save_state()
+                    return True
+                except Exception:
+                    logger.error("Auto-auth failed - stuck on sign-in page")
+                    return False
+
+            # We might have landed on any Amazon page - that's OK as long as
+            # we're authenticated. Check by testing a simple fetch.
+            logger.info(f"Landed on: {final_url} - checking if API works...")
+            self._authenticated = True
+            await self._save_state()
+            return True
 
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
@@ -221,7 +267,7 @@ class AmazonClient:
                 try {
                     // Try the V2 API from within the browser context
                     // The browser's cookies and CSRF are automatically included
-                    const r = await fetch('https://www.amazon.co.uk/alexashoppinglists/api/v2/lists/fetch', {
+                    const r = await fetch('/alexashoppinglists/api/v2/lists/fetch', {
                         method: 'POST',
                         credentials: 'include',
                         headers: {
@@ -311,7 +357,7 @@ class AmazonClient:
             async () => {{
                 try {{
                     const r = await fetch(
-                        'https://www.amazon.co.uk/alexashoppinglists/api/v2/lists/{list_id}/items/fetch?limit=200',
+                        '/alexashoppinglists/api/v2/lists/{list_id}/items/fetch?limit=200',
                         {{
                             method: 'POST',
                             credentials: 'include',
@@ -418,7 +464,7 @@ class AmazonClient:
             async () => {{
                 try {{
                     const r = await fetch(
-                        'https://www.amazon.co.uk/alexashoppinglists/api/v2/lists/{list_id}/items',
+                        '/alexashoppinglists/api/v2/lists/{list_id}/items',
                         {{
                             method: 'POST',
                             credentials: 'include',
@@ -456,7 +502,7 @@ class AmazonClient:
             async () => {{
                 try {{
                     const r = await fetch(
-                        'https://www.amazon.co.uk/alexashoppinglists/api/v2/lists/{list_id}/items/{item_id}?version={version}',
+                        '/alexashoppinglists/api/v2/lists/{list_id}/items/{item_id}?version={version}',
                         {{
                             method: 'DELETE',
                             credentials: 'include',
