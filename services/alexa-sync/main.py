@@ -4,6 +4,7 @@ Location: services/alexa-sync/main.py
 
 Periodically syncs the Amazon Alexa shopping list with Family Hub.
 Runs as a standalone Docker container alongside the Family Hub services.
+Uses Playwright headless Chromium for Amazon authentication.
 """
 
 import asyncio
@@ -86,6 +87,14 @@ async def main():
     logger.info(f"  Cookie status: {cookie_manager.status}")
     logger.info("=" * 60)
 
+    # Start the browser
+    try:
+        await amazon_client.start()
+    except Exception as e:
+        logger.error(f"Failed to start browser: {e}")
+        logger.error("The sync service requires Playwright Chromium to run")
+        return
+
     # Run initial sync
     await run_sync()
 
@@ -108,6 +117,7 @@ async def main():
     except (KeyboardInterrupt, SystemExit):
         logger.info("Shutting down...")
         scheduler.shutdown()
+        await amazon_client.stop()
 
 
 if __name__ == "__main__":
