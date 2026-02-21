@@ -446,7 +446,7 @@ class AmazonClient:
             async () => {{
                 try {{
                     const r = await fetch(
-                        '/alexashoppinglists/api/v2/lists/{list_id}/items/fetch?limit=200',
+                        '/alexashoppinglists/api/v2/lists/{list_id}/items/fetch',
                         {{
                             method: 'POST',
                             credentials: 'include',
@@ -455,6 +455,7 @@ class AmazonClient:
                                 'Accept': 'application/json',
                             }},
                             body: JSON.stringify({{
+                                maxResults: 100,
                                 itemAttributesToProject: ['quantity', 'note']
                             }})
                         }}
