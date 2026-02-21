@@ -66,22 +66,20 @@ services:
         condition: service_healthy
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Frontend React App
+  # Frontend React App (production build served by nginx)
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ""
+        VITE_GETADDRESS_API_KEY: WdZk5HROZ06OnCmwB3BJCg49348
     container_name: familyhub-frontend
-    environment:
-      VITE_API_URL: ""
-      VITE_GETADDRESS_API_KEY: WdZk5HROZ06OnCmwB3BJCg49348
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    restart: unless-stopped
 
   # Alexa Shopping List Sync Service
   alexa-sync:
@@ -95,7 +93,6 @@ services:
       POLL_INTERVAL_MINUTES: "5"
       SYNC_DIRECTION: bidirectional
       AMAZON_DOMAIN: www.amazon.co.uk
-      AMAZON_PASSWORD: ${AMAZON_PASSWORD:-}
       LOG_LEVEL: INFO
     volumes:
       - alexa_sync_data:/data
