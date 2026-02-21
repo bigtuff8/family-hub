@@ -12,6 +12,7 @@ FAMILYHUB_API_KEY = os.getenv("FAMILYHUB_API_KEY", "")
 # Amazon settings
 AMAZON_DOMAIN = os.getenv("AMAZON_DOMAIN", "www.amazon.co.uk")
 AMAZON_COOKIES_FILE = os.getenv("AMAZON_COOKIES_FILE", "/data/amazon_cookies.json")
+AMAZON_PASSWORD = os.getenv("AMAZON_PASSWORD", "")
 
 # Sync settings
 POLL_INTERVAL_MINUTES = int(os.getenv("POLL_INTERVAL_MINUTES", "5"))
